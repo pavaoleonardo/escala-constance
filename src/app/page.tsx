@@ -8,6 +8,7 @@ import {
   getShifts,
   saveShift,
   deleteShift,
+  updateShiftsBatch,
   saveEmployee,
   saveStore,
   deleteStore,
@@ -239,14 +240,10 @@ export default function DashboardPage() {
         )
       );
       
-      for (const s of shiftsToDelete) {
-        await deleteShift(s.id);
-      }
+      const toDeleteIds = shiftsToDelete.map(s => s.id);
       
-      // Save new shifts
-      for (const s of optimizedShifts) {
-        await saveShift(s);
-      }
+      // Batch update: delete old ones and insert new ones in one single operation
+      await updateShiftsBatch(toDeleteIds, optimizedShifts);
       
       markChanged();
       await loadData();

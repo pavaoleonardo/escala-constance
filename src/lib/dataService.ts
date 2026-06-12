@@ -146,6 +146,50 @@ export async function deleteShift(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// Batch Update Shifts (Optimized for AI Scheduler)
+export async function updateShiftsBatch(
+  toDeleteIds: string[],
+  toSave: Omit<Shift, 'id'>[]
+): Promise<void> {
+  if (isDemoMode || !supabase) {
+    let shifts = await getShifts();
+    
+    // Perform delete
+    if (toDeleteIds.length > 0) {
+      shifts = shifts.filter(s => !toDeleteIds.includes(s.id));
+    }
+    
+    // Perform insert
+    if (toSave.length > 0) {
+      const timestamp = Date.now();
+      const completedShifts = toSave.map((s, idx) => ({
+        ...s,
+        id: `shift-${timestamp}-${idx}-${Math.floor(Math.random() * 1000)}`
+      }));
+      shifts.push(...completedShifts);
+    }
+    
+    saveLocal(STORAGE_KEYS.SHIFTS, shifts);
+    return;
+  }
+
+  // Supabase implementation
+  if (toDeleteIds.length > 0) {
+    const { error: delError } = await supabase.from('turnos').delete().in('id', toDeleteIds);
+    if (delError) throw new Error(delError.message);
+  }
+  
+  if (toSave.length > 0) {
+    const adjusted = toSave.map(s => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id, ...rest } = s as any;
+      return rest;
+    });
+    const { error: insError } = await supabase.from('turnos').insert(adjusted);
+    if (insError) throw new Error(insError.message);
+  }
+}
+
 // Save/Update Employee
 export async function saveEmployee(employee: Omit<Employee, 'id'> & { id?: string }): Promise<Employee> {
   const isNew = !employee.id;
