@@ -223,19 +223,30 @@ export default function DashboardPage() {
   };
 
   // Generate AI Schedule handler
-  const handleGenerateAISchedule = async (storeId: string) => {
+  const handleGenerateAISchedule = async (storeId: string, period: 'week' | 'month' = 'week') => {
     try {
-      const optimizedShifts = generateAISchedule(storeId, employees, currentWeekStart);
-      const weekDates = getActiveWeekDates(currentWeekStart);
-      
-      // Delete ALL existing shifts for employees of this store in this week
-      // (catches cross-store orphans from old scheduler runs)
+      const numWeeks = period === 'month' ? 4 : 1;
+      const allOptimizedShifts: Omit<Shift, 'id'>[] = [];
+      const allWeekDates: string[] = [];
+
+      for (let i = 0; i < numWeeks; i++) {
+        const targetWeekStart = new Date(currentWeekStart);
+        targetWeekStart.setDate(currentWeekStart.getDate() + i * 7);
+        
+        const weekShifts = generateAISchedule(storeId, employees, targetWeekStart);
+        allOptimizedShifts.push(...weekShifts);
+        
+        const weekDates = getActiveWeekDates(targetWeekStart);
+        allWeekDates.push(...weekDates);
+      }
+
+      // Delete ALL existing shifts for employees of this store in all planned weeks
       const storeEmployeeIds = employees
         .filter(e => e.home_store_id === storeId)
         .map(e => e.id);
       
       const shiftsToDelete = shifts.filter(
-        s => weekDates.includes(s.date) && (
+        s => allWeekDates.includes(s.date) && (
           s.store_id === storeId || storeEmployeeIds.includes(s.employee_id)
         )
       );
@@ -243,7 +254,7 @@ export default function DashboardPage() {
       const toDeleteIds = shiftsToDelete.map(s => s.id);
       
       // Batch update: delete old ones and insert new ones in one single operation
-      await updateShiftsBatch(toDeleteIds, optimizedShifts);
+      await updateShiftsBatch(toDeleteIds, allOptimizedShifts);
       
       markChanged();
       await loadData();

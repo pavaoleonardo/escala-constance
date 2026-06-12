@@ -9,7 +9,7 @@ interface AISchedulerModalProps {
   employees: Employee[];
   currentWeekStart: Date;
   activeStoreFilter: string;
-  onGenerate: (storeId: string) => Promise<void>;
+  onGenerate: (storeId: string, period: 'week' | 'month') => Promise<void>;
 }
 
 export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
@@ -22,6 +22,7 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
   onGenerate,
 }) => {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+  const [planningPeriod, setPlanningPeriod] = useState<'week' | 'month'>('week');
   const [isPlanning, setIsPlanning] = useState<boolean>(false);
   const [planningStep, setPlanningStep] = useState<number>(0);
   const [success, setSuccess] = useState<boolean>(false);
@@ -33,6 +34,7 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
       } else if (stores.length > 0) {
         setSelectedStoreId(stores[0].id);
       }
+      setPlanningPeriod('week');
       setIsPlanning(false);
       setPlanningStep(0);
       setSuccess(false);
@@ -62,7 +64,7 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
     }
 
     try {
-      await onGenerate(selectedStoreId);
+      await onGenerate(selectedStoreId, planningPeriod);
       onClose(); // Automatically close the modal when generated successfully
     } catch (err) {
       alert('Erro ao gerar escala: ' + err);
@@ -73,7 +75,7 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
   const getWeekRangeLabel = () => {
     const start = new Date(currentWeekStart);
     const end = new Date(start);
-    end.setDate(start.getDate() + 6);
+    end.setDate(start.getDate() + (planningPeriod === 'month' ? 27 : 6));
     
     const format = (d: Date) => {
       const dd = String(d.getDate()).padStart(2, '0');
@@ -106,8 +108,21 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
               </p>
 
               <div className="form-group info-read-only" style={{ marginBottom: '1rem' }}>
-                <label>Semana de Planejamento</label>
+                <label>{planningPeriod === 'month' ? 'Período de Planejamento (Mês)' : 'Semana de Planejamento'}</label>
                 <div className="read-only-text">{getWeekRangeLabel()}</div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="ai-period-select">Período de Planejamento</label>
+                <select
+                  id="ai-period-select"
+                  value={planningPeriod}
+                  onChange={e => setPlanningPeriod(e.target.value as 'week' | 'month')}
+                  required
+                >
+                  <option value="week">Esta Semana (7 dias)</option>
+                  <option value="month">Próximo Mês (28 dias / 4 semanas)</option>
+                </select>
               </div>
 
               <div className="form-group">
