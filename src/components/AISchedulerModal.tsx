@@ -8,6 +8,7 @@ interface AISchedulerModalProps {
   stores: Store[];
   employees: Employee[];
   currentWeekStart: Date;
+  activeStoreFilter: string;
   onGenerate: (storeId: string) => Promise<void>;
 }
 
@@ -17,6 +18,7 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
   stores,
   employees,
   currentWeekStart,
+  activeStoreFilter,
   onGenerate,
 }) => {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
@@ -26,14 +28,16 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      if (stores.length > 0) {
+      if (activeStoreFilter && activeStoreFilter !== 'all') {
+        setSelectedStoreId(activeStoreFilter);
+      } else if (stores.length > 0) {
         setSelectedStoreId(stores[0].id);
       }
       setIsPlanning(false);
       setPlanningStep(0);
       setSuccess(false);
     }
-  }, [isOpen, stores]);
+  }, [isOpen, stores, activeStoreFilter]);
 
   if (!isOpen) return null;
 
@@ -59,7 +63,7 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
 
     try {
       await onGenerate(selectedStoreId);
-      setSuccess(true);
+      onClose(); // Automatically close the modal when generated successfully
     } catch (err) {
       alert('Erro ao gerar escala: ' + err);
       setIsPlanning(false);

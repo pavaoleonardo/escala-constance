@@ -475,6 +475,7 @@ export default function DashboardPage() {
         stores={stores}
         employees={employees}
         currentWeekStart={currentWeekStart}
+        activeStoreFilter={activeStoreFilter}
         onGenerate={handleGenerateAISchedule}
       />
     </div>
