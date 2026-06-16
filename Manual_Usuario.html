@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual do Usuário - Escala Constance</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-gold: #af8f56;
+      --color-gold-hover: #9a783e;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #64748b;
+      --border-color: #cbd5e1;
+      --bg-primary: #f8fafc;
+      --bg-secondary: #ffffff;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .manual-wrapper {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+      width: 100%;
+      max-width: 800px;
+      padding: 3rem;
+      position: relative;
+    }
+
+    header {
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--color-gold), #d4af37);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.5rem;
+      color: #ffffff;
+      box-shadow: 0 4px 10px rgba(176, 141, 71, 0.25);
+    }
+
+    .brand h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .brand p {
+      font-size: 0.75rem;
+      color: var(--color-gold);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .btn-download {
+      background-color: var(--color-gold);
+      color: #ffffff;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background-color 0.2s;
+    }
+
+    .btn-download:hover {
+      background-color: var(--color-gold-hover);
+    }
+
+    h2 {
+      font-size: 1.15rem;
+      color: var(--color-gold);
+      font-weight: 600;
+      margin-top: 2rem;
+      margin-bottom: 0.8rem;
+      border-left: 3px solid var(--color-gold);
+      padding-left: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    p {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    .highlight-box {
+      background-color: rgba(175, 143, 86, 0.05);
+      border: 1px solid rgba(175, 143, 86, 0.2);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .highlight-box p {
+      margin-bottom: 0;
+      font-weight: 500;
+      color: var(--color-gold-text);
+    }
+
+    .highlight-box a {
+      color: var(--color-gold);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .highlight-box a:hover {
+      text-decoration: underline;
+    }
+
+    ol, ul {
+      margin-left: 1.5rem;
+      margin-bottom: 1.5rem;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    .grid-shifts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .shift-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .shift-card h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .shift-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0;
+    }
+
+    .shift-time {
+      font-weight: 600;
+      color: var(--color-gold);
+    }
+
+    footer {
+      margin-top: 3rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 1rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .manual-wrapper {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+      }
+      .btn-download {
+        display: none;
+      }
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script>
+    function generatePDF() {
+      const element = document.getElementById('manual-container');
+      const downloadBtn = document.querySelector('.btn-download');
+      
+      // Temporarily hide button for print
+      downloadBtn.style.display = 'none';
+
+      const opt = {
+        margin:       0.4,
+        filename:     'Manual_Escala_Constance.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save().then(() => {
+        downloadBtn.style.display = 'inline-flex';
+      });
+    }
+
+    // Auto run on load to save instantly for the user
+    window.addEventListener('load', () => {
+      setTimeout(generatePDF, 1500);
+    });
+  </script>
+</head>
+<body>
+
+  <div class="manual-wrapper" id="manual-container">
+    <header>
+      <div class="logo-container">
+        <div class="logo">C</div>
+        <div class="brand">
+          <h1>Manual de Uso Rápido</h1>
+          <p>Gestão e Conformidade CLT — Escala Constance</p>
+        </div>
+      </div>
+      <button class="btn-download" onclick="generatePDF()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Salvar PDF</span>
+      </button>
+    </header>
+
+    <div class="highlight-box">
+      <p>🔗 <strong>Link do Aplicativo:</strong> <a href="https://escala-constance.vercel.app/" target="_blank">escala-constance.vercel.app</a></p>
+    </div>
+
+    <p>Este manual foi desenvolvido para ajudar a equipe a criar, gerenciar e ajustar escalas de forma rápida, em total conformidade com a legislação trabalhista brasileira (CLT) e com as regras específicas de rodízio da nossa franquia.</p>
+
+    <h2>1. Jornada de Trabalho e Turnos</h2>
+    <p>Cada vendedora cumpre <strong>6 horas diárias</strong> de trabalho. A escala é dividida nos seguintes turnos padrão:</p>
+    
+    <div class="grid-shifts">
+      <div class="shift-card">
+        <h3>Segunda a Sábado</h3>
+        <p>• <strong>Manhã:</strong> <span class="shift-time">10:00 às 16:00</span> (int: 15m)</p>
+        <p>• <strong>Intermediário:</strong> <span class="shift-time">14:00 às 20:00</span> (int: 15m)</p>
+        <p>• <strong>Noite:</strong> <span class="shift-time">16:00 às 22:00</span> (int: 15m)</p>
+      </div>
+      <div class="shift-card">
+        <h3>Domingos</h3>
+        <p>• <strong>Turno Único:</strong> <span class="shift-time">12:00 às 20:00</span> (int: 60m)</p>
+        <p style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+          *Por ser um turno de 8h decorridas, exige obrigatoriamente intervalo mínimo de 1 hora pela CLT.
+        </p>
+      </div>
+    </div>
+
+    <h2>2. Rotação de Domingos e Folgas</h2>
+    <ul>
+      <li><strong>Folga Dominical:</strong> Todas as vendedoras têm direito a pelo menos <strong>1 domingo de folga por mês</strong>. O sistema calcula a rotatividade automaticamente dividindo a equipe em grupos.</li>
+      <li><strong>Cobertura de Domingos:</strong> A escala planeja para manter sempre <strong>3 vendedoras</strong> trabalhando aos domingos (ou no mínimo 2 em fins de semana específicos).</li>
+      <li><strong>Folgas Semanais Compensatórias:</strong> Quem trabalha no domingo tem sua folga compensatória obrigatoriamente escalada entre <strong>Segunda, Terça ou Quarta-feira</strong>, revezando conforme o turno do colaborador para garantir equidade.</li>
+    </ul>
+
+    <h2>3. Como Planejar a Escala com a IA</h2>
+    <p>O planejador inteligente monta a escala ideal respeitando todas as regras acima com apenas 1 clique:</p>
+    <ol>
+      <li>No topo do app, clique em <strong>"Gerar Escala (IA)"</strong>.</li>
+      <li>Selecione a loja e o período de planejamento (Esta Semana ou Próximo Mês).</li>
+      <li>Clique em <strong>"Gerar Escala"</strong>. O sistema distribuirá as folgas dominicais, folgas compensatórias semanais e turnos regulares automaticamente.</li>
+    </ol>
+
+    <h2>4. Ajustes Manuais (Vésperas de Feriados, Férias)</h2>
+    <p>Para datas especiais (como véspera do Dia das Mães, onde é necessário abrir a loja com mais funcionárias):</p>
+    <ol>
+      <li><strong>Adicionar/Editar Turno:</strong> Clique na célula correspondente ao funcionário e dia da semana na grade central. Selecione o horário desejado e clique em <strong>"Salvar Turno"</strong>.</li>
+      <li><strong>Tratamento de Alertas:</strong> Se o ajuste manual violar qualquer regra legal (ex: falta de folga semanal ou descanso interjornada de 11h), um alerta em vermelho aparecerá no painel de avisos. Use isso para fazer os ajustes finos e garantir segurança jurídica.</li>
+    </ol>
+
+    <h2>5. Como Enviar a Escala pelo WhatsApp</h2>
+    <ol>
+      <li>Clique no botão <strong>"WhatsApp"</strong> no topo da tela.</li>
+      <li>Selecione a sua loja. O app gerará uma mensagem formatada contendo a escala diária de trabalho e a lista de folgas de cada dia.</li>
+      <li>Clique em <strong>"Copiar Texto"</strong> e cole diretamente no grupo de WhatsApp da loja!</li>
+    </ol>
+
+    <footer>
+      <p>© 2026 Escala Constance. Todos os direitos reservados.</p>
+    </footer>
+  </div>
+
+</body>
+</html>
