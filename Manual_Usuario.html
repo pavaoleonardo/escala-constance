@@ -216,6 +216,15 @@
         display: none;
       }
     }
+
+    .html2pdf__page-break {
+      page-break-before: always;
+      break-before: page;
+      display: block;
+      height: 0;
+      margin: 0;
+      border: none;
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script>
@@ -297,6 +306,8 @@
       <li><strong>Cobertura de Domingos:</strong> A escala planeja para manter sempre <strong>3 vendedoras</strong> trabalhando aos domingos (ou no mínimo 2 em fins de semana específicos).</li>
       <li><strong>Folgas Semanais Compensatórias:</strong> Quem trabalha no domingo tem sua folga compensatória obrigatoriamente escalada entre <strong>Segunda, Terça ou Quarta-feira</strong>, revezando conforme o turno do colaborador para garantir equidade.</li>
     </ul>
+
+    <div class="html2pdf__page-break"></div>
 
     <h2>3. Como Planejar a Escala com a IA</h2>
     <p>O planejador inteligente monta a escala ideal respeitando todas as regras acima com apenas 1 clique:</p>
