@@ -378,14 +378,14 @@ button, input, select, textarea {
 .store-filter-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   padding: 0.65rem 0.9rem;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
-  text-align: center;
+  text-align: left;
   font-size: 0.82rem;
   font-weight: 500;
   color: var(--text-secondary);
