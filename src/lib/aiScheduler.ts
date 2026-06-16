@@ -204,33 +204,10 @@ export function generateAISchedule(
  * that cover the full operating span as evenly as possible.
  */
 function getSundayShifts(open: string, close: string): { start: string; end: string }[] {
-  const openH = parseInt(open.split(':')[0], 10);
-  const closeH = parseInt(close.split(':')[0], 10);
-  const windowH = closeH - openH;
-
-  if (windowH <= 6) {
-    // Store is open ≤ 6h: everyone works the same slot
-    return [
-      { start: open, end: close },
-      { start: open, end: close },
-      { start: open, end: close },
-    ];
-  }
-
-  // Distribute 3 × 6h slots across the window
-  // slot 1: opening
-  // slot 2: middle
-  // slot 3: closing (ends at close)
-  const fmt = (h: number) => `${String(h).padStart(2, '0')}:00`;
-
-  const slot1Start = openH;
-  const slot3End = closeH;
-  const slot3Start = slot3End - 6;
-  const slot2Start = Math.round((slot1Start + slot3Start) / 2);
-
+  // Sunday has a single turn/shift covering the store operating hours (usually 12:00 to 20:00)
   return [
-    { start: fmt(slot1Start), end: fmt(slot1Start + 6) },
-    { start: fmt(slot2Start), end: fmt(slot2Start + 6) },
-    { start: fmt(slot3Start), end: fmt(slot3End) },
+    { start: open, end: close },
+    { start: open, end: close },
+    { start: open, end: close },
   ];
 }

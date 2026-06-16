@@ -6,7 +6,7 @@ export const defaultStores: Store[] = [
     name: 'Constance Polo Shopping Indaiatuba',
     operating_hours: {
       weekday: { open: '10:00', close: '22:00' },
-      sunday: { open: '12:00', close: '21:00' }
+      sunday: { open: '12:00', close: '20:00' }
     }
   },
   {
@@ -14,7 +14,7 @@ export const defaultStores: Store[] = [
     name: 'Constance Shopping Parque das Bandeiras',
     operating_hours: {
       weekday: { open: '10:00', close: '22:00' },
-      sunday: { open: '12:00', close: '21:00' }
+      sunday: { open: '12:00', close: '20:00' }
     }
   },
   {
@@ -22,7 +22,7 @@ export const defaultStores: Store[] = [
     name: 'Constance Shopping Iguatemi Campinas',
     operating_hours: {
       weekday: { open: '10:00', close: '22:00' },
-      sunday: { open: '14:00', close: '20:00' }
+      sunday: { open: '12:00', close: '20:00' }
     }
   }
 ];
