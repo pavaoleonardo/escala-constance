@@ -5,7 +5,7 @@ interface EmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (emp: Omit<Employee, 'id'> & { id?: string }) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => Promise<boolean> | boolean | void;
   stores: Store[];
   employees: Employee[];
 }
@@ -142,14 +142,6 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                           >
                             Editar
                           </button>
-                          <button
-                            type="button"
-                            className="btn-text-action"
-                            style={{ color: 'var(--color-danger)', marginLeft: '1rem' }}
-                            onClick={() => onDelete(emp.id)}
-                          >
-                            Excluir
-                          </button>
                         </td>
                       </tr>
                     );
@@ -246,7 +238,12 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                   <button
                     type="button"
                     className="btn btn-danger-outline"
-                    onClick={() => onDelete(empId)}
+                    onClick={async () => {
+                      const success = await onDelete(empId);
+                      if (success !== false) {
+                        setActiveTab('list');
+                      }
+                    }}
                   >
                     Excluir
                   </button>

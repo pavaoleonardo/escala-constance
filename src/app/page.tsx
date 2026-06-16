@@ -198,16 +198,18 @@ export default function DashboardPage() {
   };
 
   // Delete employee handler
-  const handleDeleteEmployee = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este funcionário? Os turnos associados também serão removidos.')) return;
+  const handleDeleteEmployee = async (id: string): Promise<boolean> => {
+    if (!confirm('Deseja realmente excluir este funcionário? Os turnos associados também serão removidos.')) return false;
     setLoading(true);
     try {
       await deleteEmployee(id);
       markChanged();
       await loadData();
+      return true;
     } catch (err) {
       alert('Erro ao excluir funcionário: ' + err);
       setLoading(false);
+      return false;
     }
   };
 
