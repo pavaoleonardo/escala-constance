@@ -74,6 +74,16 @@ export function getActiveWeekDates(currentWeekStart: Date): string[] {
   return dates;
 }
 
+// De-duplicate shifts: keep only the last shift for each employee_id and date
+export function getUniqueShifts(shifts: Shift[]): Shift[] {
+  const map = new Map<string, Shift>();
+  shifts.forEach(s => {
+    const key = `${s.employee_id}_${s.date}`;
+    map.set(key, s);
+  });
+  return Array.from(map.values());
+}
+
 // --- Overtime Calculation ---
 // Returns the number of overtime hours (> 44h contract) for an employee in the active week.
 export interface OvertimeInfo {
@@ -89,11 +99,12 @@ export function calculateOvertime(
   shifts: Shift[],
   currentWeekStart: Date
 ): OvertimeInfo[] {
+  const uniqueShifts = getUniqueShifts(shifts);
   const weekDates = getActiveWeekDates(currentWeekStart);
   const results: OvertimeInfo[] = [];
 
   employees.filter(emp => emp.active).forEach(employee => {
-    const empShiftsThisWeek = shifts.filter(
+    const empShiftsThisWeek = uniqueShifts.filter(
       s => s.employee_id === employee.id && s.store_id === employee.home_store_id && weekDates.includes(s.date)
     );
 
@@ -128,12 +139,13 @@ export function runAllValidations(
   shifts: Shift[],
   currentWeekStart: Date
 ): ScheduleAlert[] {
+  const uniqueShifts = getUniqueShifts(shifts);
   const alerts: ScheduleAlert[] = [];
   const weekDates = getActiveWeekDates(currentWeekStart);
 
   // --- EMPLOYEE-SPECIFIC CHECKS (only critical CLT violations) ---
   employees.filter(emp => emp.active).forEach(employee => {
-    const empShiftsThisWeek = shifts.filter(
+    const empShiftsThisWeek = uniqueShifts.filter(
       s => s.employee_id === employee.id && weekDates.includes(s.date)
     );
 

@@ -81,24 +81,56 @@ export async function getEmployees(): Promise<Employee[]> {
   return data as Employee[];
 }
 
+// Clean up duplicate shifts from the database
+export async function cleanDuplicateShifts(shifts: Shift[]): Promise<Shift[]> {
+  const seen = new Map<string, Shift>();
+  const duplicatesToDelete: string[] = [];
+
+  shifts.forEach(s => {
+    const key = `${s.employee_id}_${s.date}`;
+    if (seen.has(key)) {
+      const prev = seen.get(key)!;
+      duplicatesToDelete.push(prev.id);
+    }
+    seen.set(key, s);
+  });
+
+  if (duplicatesToDelete.length > 0) {
+    console.log(`[Database Cleanup] Cleaning up ${duplicatesToDelete.length} duplicate shifts...`);
+    if (isDemoMode || !supabase) {
+      let currentShifts = getLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
+      currentShifts = currentShifts.filter(s => !duplicatesToDelete.includes(s.id));
+      saveLocal(STORAGE_KEYS.SHIFTS, currentShifts);
+    } else {
+      await supabase.from('turnos').delete().in('id', duplicatesToDelete);
+    }
+    return Array.from(seen.values());
+  }
+
+  return shifts;
+}
+
 // Load Shifts
 export async function getShifts(): Promise<Shift[]> {
   checkAndMigrateData();
+  let shifts: Shift[] = [];
   if (isDemoMode || !supabase) {
-    let shifts = getLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
+    shifts = getLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
     if (shifts.length === 0) {
       shifts = defaultShifts;
       saveLocal(STORAGE_KEYS.SHIFTS, shifts);
     }
-    return shifts;
+  } else {
+    const { data, error } = await supabase.from('turnos').select('*');
+    if (error) {
+      console.error("Erro ao buscar turnos do Supabase:", error);
+      shifts = getLocal<Shift[]>(STORAGE_KEYS.SHIFTS, defaultShifts);
+    } else {
+      shifts = data as Shift[];
+    }
   }
 
-  const { data, error } = await supabase.from('turnos').select('*');
-  if (error) {
-    console.error("Erro ao buscar turnos do Supabase:", error);
-    return getLocal<Shift[]>(STORAGE_KEYS.SHIFTS, defaultShifts);
-  }
-  return data as Shift[];
+  return cleanDuplicateShifts(shifts);
 }
 
 // Save/Update Shift
@@ -110,6 +142,8 @@ export async function saveShift(shift: Omit<Shift, 'id'> & { id?: string }): Pro
   if (isDemoMode || !supabase) {
     let shifts = await getShifts();
     if (isNew) {
+      // Remove any existing shift for same employee and date to prevent duplicates
+      shifts = shifts.filter(s => !(s.employee_id === shift.employee_id && s.date === shift.date));
       shifts.push(completedShift);
     } else {
       shifts = shifts.map(s => s.id === shiftId ? completedShift : s);
@@ -119,6 +153,9 @@ export async function saveShift(shift: Omit<Shift, 'id'> & { id?: string }): Pro
   }
 
   if (isNew) {
+    // To prevent duplicate insertion in Supabase, first delete any shift on the same date/employee
+    await supabase.from('turnos').delete().eq('employee_id', shift.employee_id).eq('date', shift.date);
+
     // Insert into Supabase
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, ...supabaseInsertData } = completedShift; // Let Supabase auto-generate UUID
@@ -161,6 +198,12 @@ export async function updateShiftsBatch(
     
     // Perform insert
     if (toSave.length > 0) {
+      // Create a set of "employee_id:date" keys for the new shifts
+      const newKeys = new Set(toSave.map(s => `${s.employee_id}_${s.date}`));
+      
+      // Filter out any existing shifts that have a matching key
+      shifts = shifts.filter(s => !newKeys.has(`${s.employee_id}_${s.date}`));
+
       const timestamp = Date.now();
       const completedShifts = toSave.map((s, idx) => ({
         ...s,
@@ -180,6 +223,16 @@ export async function updateShiftsBatch(
   }
   
   if (toSave.length > 0) {
+    // Delete any existing shifts for these employees on these dates to ensure no duplicates
+    const employeeIds = Array.from(new Set(toSave.map(s => s.employee_id)));
+    const dates = Array.from(new Set(toSave.map(s => s.date)));
+    const { error: delError } = await supabase
+      .from('turnos')
+      .delete()
+      .in('employee_id', employeeIds)
+      .in('date', dates);
+    if (delError) throw new Error(delError.message);
+
     const adjusted = toSave.map(s => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, ...rest } = s as any;

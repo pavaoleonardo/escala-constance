@@ -1,6 +1,6 @@
 import React from 'react';
 import { Store, Employee, Shift, ScheduleAlert } from '../lib/types';
-import { getShiftDuration, formatToDayMonth, DAY_SHORT_NAMES_PT } from '../lib/validation';
+import { getShiftDuration, formatToDayMonth, DAY_SHORT_NAMES_PT, getUniqueShifts } from '../lib/validation';
 
 interface ScheduleMatrixProps {
   stores: Store[];
@@ -26,10 +26,12 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
   // Filter active employees
   let filteredEmployees = employees.filter(emp => emp.active);
 
+  const uniqueShifts = getUniqueShifts(shifts);
+
   if (activeStoreFilter !== 'all') {
     filteredEmployees = filteredEmployees.filter(emp => {
       const isHomeStore = emp.home_store_id === activeStoreFilter;
-      const hasFloatShiftHere = shifts.some(
+      const hasFloatShiftHere = uniqueShifts.some(
         s =>
           s.employee_id === emp.id &&
           s.store_id === activeStoreFilter &&
@@ -93,7 +95,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                     {group.employees.map(employee => {
                       // Calculate weekly hours
                       let weeklyHours = 0;
-                      shifts
+                      uniqueShifts
                         .filter(s => s.employee_id === employee.id && s.store_id === employee.home_store_id && weekDates.includes(s.date))
                         .forEach(s => {
                           const isFolga = (s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time;
@@ -126,11 +128,9 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                           {/* Day Columns */}
                           {weekDates.map(date => {
                             // Only show shifts for the employee's home store (no cross-store)
-                            // Take only the last shift per cell to avoid duplicate stacking
-                            const allDayShifts = shifts.filter(
+                            const dayShifts = uniqueShifts.filter(
                               s => s.employee_id === employee.id && s.date === date && s.store_id === employee.home_store_id
                             );
-                            const dayShifts = allDayShifts.length > 1 ? [allDayShifts[allDayShifts.length - 1]] : allDayShifts;
                             const cellAlerts = activeAlerts.filter(a => a.employeeId === employee.id && a.date === date);
                             const hasCellAlert = showWarnings && cellAlerts.length > 0;
 

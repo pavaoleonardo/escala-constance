@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Store, Employee, Shift } from '../lib/types';
-import { DAY_NAMES_PT, formatToDayMonth } from '../lib/validation';
+import { DAY_NAMES_PT, formatToDayMonth, getUniqueShifts } from '../lib/validation';
 
 interface WhatsAppModalProps {
   isOpen: boolean;
@@ -43,11 +43,13 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
     const homeEmployees = employees.filter(emp => emp.active && emp.home_store_id === selectedStoreId);
 
+    const uniqueShifts = getUniqueShifts(shifts);
+
     weekDates.forEach((date, idx) => {
       text += `${DAY_NAMES_PT[idx]} (${formatToDayMonth(date)}):\n`;
 
       // Active shifts scheduled at this store on this day
-      const storeShifts = shifts.filter(
+      const storeShifts = uniqueShifts.filter(
         s =>
           s.store_id === selectedStoreId &&
           s.date === date &&
@@ -69,7 +71,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
       const folgas: string[] = [];
 
       homeEmployees.forEach(emp => {
-        const empShiftsOnDay = shifts.filter(s => s.employee_id === emp.id && s.date === date);
+        const empShiftsOnDay = uniqueShifts.filter(s => s.employee_id === emp.id && s.date === date);
 
         if (empShiftsOnDay.length === 0) {
           folgas.push(emp.name);
