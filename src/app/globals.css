@@ -378,14 +378,16 @@ button, input, select, textarea {
 .store-filter-btn {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 0.5rem;
   padding: 0.65rem 0.9rem;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   font-size: 0.82rem;
+  font-weight: 500;
   color: var(--text-secondary);
   transition: var(--transition-smooth);
 }
@@ -399,7 +401,7 @@ button, input, select, textarea {
   background-color: var(--color-gold-bg);
   border-color: var(--color-gold);
   color: var(--color-gold-text);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .store-filter-btn .dot {
@@ -408,7 +410,6 @@ button, input, select, textarea {
   border-radius: 50%;
   background-color: #dee2e6;
   display: inline-block;
-  margin-right: 0.5rem;
   transition: var(--transition-smooth);
 }
 
