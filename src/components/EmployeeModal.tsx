@@ -5,6 +5,7 @@ interface EmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (emp: Omit<Employee, 'id'> & { id?: string }) => void;
+  onDelete: (id: string) => void;
   stores: Store[];
   employees: Employee[];
 }
@@ -13,6 +14,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   stores,
   employees,
 }) => {
@@ -133,12 +135,20 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                           )}
                         </td>
                         <td>
-                          <button
+                           <button
                             type="button"
                             className="btn-text-action"
                             onClick={() => handleEditClick(emp)}
                           >
                             Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-text-action"
+                            style={{ color: 'var(--color-danger)', marginLeft: '1rem' }}
+                            onClick={() => onDelete(emp.id)}
+                          >
+                            Excluir
                           </button>
                         </td>
                       </tr>
@@ -232,6 +242,15 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 >
                   Voltar
                 </button>
+                {empId && (
+                  <button
+                    type="button"
+                    className="btn btn-danger-outline"
+                    onClick={() => onDelete(empId)}
+                  >
+                    Excluir
+                  </button>
+                )}
                 <button type="submit" className="btn btn-primary">
                   Salvar Funcionário
                 </button>

@@ -10,6 +10,7 @@ import {
   deleteShift,
   updateShiftsBatch,
   saveEmployee,
+  deleteEmployee,
   saveStore,
   deleteStore,
   resetToMockData,
@@ -192,6 +193,20 @@ export default function DashboardPage() {
       await loadData();
     } catch (err) {
       alert('Erro ao salvar funcionário: ' + err);
+      setLoading(false);
+    }
+  };
+
+  // Delete employee handler
+  const handleDeleteEmployee = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este funcionário? Os turnos associados também serão removidos.')) return;
+    setLoading(true);
+    try {
+      await deleteEmployee(id);
+      markChanged();
+      await loadData();
+    } catch (err) {
+      alert('Erro ao excluir funcionário: ' + err);
       setLoading(false);
     }
   };
@@ -459,6 +474,7 @@ export default function DashboardPage() {
         isOpen={isEmployeeModalOpen}
         onClose={() => setIsEmployeeModalOpen(false)}
         onSave={handleSaveEmployee}
+        onDelete={handleDeleteEmployee}
         stores={stores}
         employees={employees}
       />

@@ -220,6 +220,19 @@ export async function saveEmployee(employee: Omit<Employee, 'id'> & { id?: strin
   }
 }
 
+// Delete Employee
+export async function deleteEmployee(id: string): Promise<void> {
+  if (isDemoMode || !supabase) {
+    let employees = await getEmployees();
+    employees = employees.filter(e => e.id !== id);
+    saveLocal(STORAGE_KEYS.EMPLOYEES, employees);
+    return;
+  }
+
+  const { error } = await supabase.from('funcionarios').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
 // Reset data back to default values
 export async function resetToMockData(): Promise<void> {
   if (isDemoMode || !supabase) {

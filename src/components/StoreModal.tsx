@@ -208,6 +208,15 @@ export const StoreModal: React.FC<StoreModalProps> = ({
                 >
                   Voltar
                 </button>
+                {storeId && (
+                  <button
+                    type="button"
+                    className="btn btn-danger-outline"
+                    onClick={() => handleDelete(storeId)}
+                  >
+                    Excluir Loja
+                  </button>
+                )}
                 <button type="submit" className="btn btn-primary">
                   Salvar Loja
                 </button>
