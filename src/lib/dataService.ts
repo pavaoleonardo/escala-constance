@@ -28,7 +28,7 @@ function saveLocal(key: string, data: any) {
 }
 
 const DATA_VERSION_KEY = 'constance_data_version';
-const CURRENT_DATA_VERSION = 3; // Standardized to 6 employees per store and cleaned shifts
+const CURRENT_DATA_VERSION = 4; // Updated to 6h shifts: 10-16 / 14-20 / 16-22, Sunday Group A/B rotation
 
 function checkAndMigrateData() {
   if (typeof window === 'undefined') return;
