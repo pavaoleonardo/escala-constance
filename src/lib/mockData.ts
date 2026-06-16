@@ -3,7 +3,7 @@ import { Store, Employee, Shift } from './types';
 export const defaultStores: Store[] = [
   {
     id: 'store-1',
-    name: 'Constance Polo Shopping Indaiatuba',
+    name: 'Polo Shopping Indaiatuba',
     operating_hours: {
       weekday: { open: '10:00', close: '22:00' },
       sunday: { open: '12:00', close: '20:00' }
@@ -11,7 +11,7 @@ export const defaultStores: Store[] = [
   },
   {
     id: 'store-2',
-    name: 'Constance Shopping Parque das Bandeiras',
+    name: 'Shopping Parque das Bandeiras',
     operating_hours: {
       weekday: { open: '10:00', close: '22:00' },
       sunday: { open: '12:00', close: '20:00' }
@@ -19,7 +19,7 @@ export const defaultStores: Store[] = [
   },
   {
     id: 'store-3',
-    name: 'Constance Shopping Iguatemi Campinas',
+    name: 'Shopping Iguatemi Campinas',
     operating_hours: {
       weekday: { open: '10:00', close: '22:00' },
       sunday: { open: '12:00', close: '20:00' }

@@ -3,9 +3,9 @@ import { Store, Employee, Shift } from './types';
 import { defaultStores, defaultEmployees, defaultShifts } from './mockData';
 
 const STORAGE_KEYS = {
-  STORES: 'constance_stores',
-  EMPLOYEES: 'constance_employees',
-  SHIFTS: 'constance_shifts'
+  STORES: 'varejo_stores',
+  EMPLOYEES: 'varejo_employees',
+  SHIFTS: 'varejo_shifts'
 };
 
 // Helper: load from localStorage
@@ -27,11 +27,31 @@ function saveLocal(key: string, data: any) {
   }
 }
 
-const DATA_VERSION_KEY = 'constance_data_version';
+const DATA_VERSION_KEY = 'varejo_data_version';
 const CURRENT_DATA_VERSION = 4; // Updated to 6h shifts: 10-16 / 14-20 / 16-22, Sunday Group A/B rotation
 
 function checkAndMigrateData() {
   if (typeof window === 'undefined') return;
+
+  // Seamless migration from old constance_ keys to varejo_ keys
+  const oldStores = localStorage.getItem('constance_stores');
+  const newStores = localStorage.getItem(STORAGE_KEYS.STORES);
+  if (oldStores && !newStores) {
+    localStorage.setItem(STORAGE_KEYS.STORES, oldStores);
+    
+    const oldEmployees = localStorage.getItem('constance_employees');
+    if (oldEmployees) localStorage.setItem(STORAGE_KEYS.EMPLOYEES, oldEmployees);
+    
+    const oldShifts = localStorage.getItem('constance_shifts');
+    if (oldShifts) localStorage.setItem(STORAGE_KEYS.SHIFTS, oldShifts);
+    
+    const oldVersion = localStorage.getItem('constance_data_version');
+    if (oldVersion) localStorage.setItem(DATA_VERSION_KEY, oldVersion);
+    
+    const oldChanged = localStorage.getItem('constance_user_has_changed');
+    if (oldChanged) localStorage.setItem('varejo_user_has_changed', oldChanged);
+  }
+
   const version = localStorage.getItem(DATA_VERSION_KEY);
   if (!version || parseInt(version, 10) < CURRENT_DATA_VERSION) {
     localStorage.setItem(DATA_VERSION_KEY, CURRENT_DATA_VERSION.toString());

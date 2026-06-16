@@ -9,8 +9,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Escala Constance - Gestão e CLT",
-  description: "Sistema de gestão de escalas de funcionários e conformidade CLT para franquia Constance Bolsas e Sapatos.",
+  title: "Escala Varejo - Gestão e CLT",
+  description: "Sistema de gestão de escalas de funcionários e conformidade CLT para lojas de varejo.",
 };
 
 export const viewport: Viewport = {

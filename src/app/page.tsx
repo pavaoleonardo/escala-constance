@@ -44,10 +44,28 @@ export default function DashboardPage() {
   const [alerts, setAlerts] = useState<ScheduleAlert[]>([]);
   const [alertsMinimized, setAlertsMinimized] = useState<boolean>(false);
 
+  const [franchiseName, setFranchiseName] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('escala_varejo_franchise_name') || 'Constance';
+    }
+    return 'Constance';
+  });
+
+  const handleChangeFranchiseName = () => {
+    const newName = prompt('Digite o nome da franquia (ex: Constance, Arezzo, etc.):', franchiseName);
+    if (newName !== null) {
+      const trimmed = newName.trim();
+      setFranchiseName(trimmed);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('escala_varejo_franchise_name', trimmed);
+      }
+    }
+  };
+
   // --- Track whether the user has modified anything in the current schedule ---
   const [userHasChanged, setUserHasChanged] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('constance_user_has_changed') === 'true';
+      return localStorage.getItem('varejo_user_has_changed') === 'true';
     }
     return false;
   });
@@ -55,14 +73,14 @@ export default function DashboardPage() {
   const markChanged = () => {
     setUserHasChanged(true);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('constance_user_has_changed', 'true');
+      localStorage.setItem('varejo_user_has_changed', 'true');
     }
   };
 
   const resetChanged = () => {
     setUserHasChanged(false);
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('constance_user_has_changed');
+      localStorage.removeItem('varejo_user_has_changed');
     }
   };
 
@@ -138,7 +156,7 @@ export default function DashboardPage() {
   const handleResetData = async () => {
     if (
       confirm(
-        'Deseja redefinir os dados para o padrão de demonstração Constance? Isso apagará todas as modificações atuais.'
+        'Deseja redefinir os dados para o padrão de demonstração? Isso apagará todas as modificações atuais.'
       )
     ) {
       setLoading(true);
@@ -298,10 +316,29 @@ export default function DashboardPage() {
       {/* 2. Top Header Navigation */}
       <header className="app-header">
         <div className="header-brand">
-          <div className="brand-logo">C</div>
+          <div className="brand-logo">{franchiseName ? franchiseName.charAt(0).toUpperCase() : 'V'}</div>
           <div className="brand-text">
-            <h1>Escala Constance</h1>
-            <p>Gestão e Conformidade CLT</p>
+            <h1>Escala Varejo</h1>
+            <p style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>{franchiseName ? `Unidades ${franchiseName}` : 'Gestão e Conformidade CLT'}</span>
+              <button 
+                type="button"
+                onClick={handleChangeFranchiseName} 
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer', 
+                  fontSize: '0.85rem', 
+                  padding: '2px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  opacity: 0.7
+                }}
+                title="Editar Nome da Franquia"
+              >
+                ✏️
+              </button>
+            </p>
           </div>
         </div>
 

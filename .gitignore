@@ -42,4 +42,8 @@ next-env.d.ts
 
 # documentation files
 *.md
+!SDD.md
+!README.md
+!AGENTS.md
+!CLAUDE.md
 
