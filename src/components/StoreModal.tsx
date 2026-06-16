@@ -146,7 +146,7 @@ export const StoreModal: React.FC<StoreModalProps> = ({
                   value={name}
                   onChange={e => setName(e.target.value)}
                   required
-                  placeholder="Ex: Constance Shopping Iguatemi"
+                  placeholder="Ex: Shopping Iguatemi"
                 />
               </div>
 

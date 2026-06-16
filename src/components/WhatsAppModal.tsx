@@ -37,7 +37,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
     const startDayFormatted = formatToDayMonth(weekDates[0]);
     const endDayFormatted = formatToDayMonth(weekDates[6]);
-    const franchiseName = (typeof window !== 'undefined' ? localStorage.getItem('escala_varejo_franchise_name') : null) || 'Constance';
+    const franchiseName = (typeof window !== 'undefined' ? localStorage.getItem('escala_varejo_franchise_name') : null) || 'Varejo';
     let text = `🗓️ ESCALA ${franchiseName.toUpperCase()} - ${store.name.toUpperCase()}\n`;
     text += `Período: ${startDayFormatted} a ${endDayFormatted}\n\n`;
 

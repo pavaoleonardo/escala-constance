@@ -1,7 +1,7 @@
 # System Specification: Escala Varejo (Tailored Configuration)
 
 ## 1. Intent & Overview
-**Escala Varejo** is a multi-store staff scheduling and workforce management application designed for multi-unit retail franchise owners in Brazil. This specific operational profile is configured for the workflow constraints of *self-shoes* retail models (such as Constance Bolsas e Sapatos), automating shift patterns across 3 distinct mall-based locations, tracking mandatory Sunday rotations, and preventing CLT labor code violations.
+**Escala Varejo** is a multi-store staff scheduling and workforce management application designed for multi-unit retail franchise owners in Brazil. This specific operational profile is configured for the workflow constraints of *self-shoes* retail models, automating shift patterns across 3 distinct mall-based locations, tracking mandatory Sunday rotations, and preventing CLT labor code violations.
 
 *   **Application Name:** Escala Varejo
 *   **Target Audience:** Franchise Owners (Admin), Store Managers.
@@ -13,10 +13,10 @@
 ## 2. Branding & White-Label Structure
 To protect intellectual property and support potential future multi-tenant commercialization, the application is designed to be white-labeled:
 *   **Generic Base Name**: The core application branding is **Escala Varejo**.
-*   **Dynamic Franchise Branding**: Inside the dashboard header, managers can configure a custom franchise name (e.g., "Constance") by clicking an edit (✏️) icon next to the subtitle.
+*   **Dynamic Franchise Branding**: Inside the dashboard header, managers can configure a custom franchise name by clicking an edit (✏️) icon next to the subtitle.
 *   **Persistent Customization**:
     *   The configured franchise name is saved under `escala_varejo_franchise_name` in LocalStorage.
-    *   The dashboard header logo dynamically displays the first letter of the franchise name (defaulting to "C" for Constance, "V" if empty).
+    *   The dashboard header logo dynamically displays the first letter of the franchise name (defaults to "V" if empty).
     *   WhatsApp scale export texts dynamically format their titles as `🗓️ ESCALA [NOME DA FRANQUIA] - [NOME DA LOJA]`.
 
 ---

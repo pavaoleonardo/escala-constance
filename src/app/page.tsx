@@ -46,13 +46,13 @@ export default function DashboardPage() {
 
   const [franchiseName, setFranchiseName] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('escala_varejo_franchise_name') || 'Constance';
+      return localStorage.getItem('escala_varejo_franchise_name') || '';
     }
-    return 'Constance';
+    return '';
   });
 
   const handleChangeFranchiseName = () => {
-    const newName = prompt('Digite o nome da franquia (ex: Constance, Arezzo, etc.):', franchiseName);
+    const newName = prompt('Digite o nome da franquia ou empresa:', franchiseName);
     if (newName !== null) {
       const trimmed = newName.trim();
       setFranchiseName(trimmed);

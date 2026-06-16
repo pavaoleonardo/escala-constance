@@ -3,7 +3,7 @@ import { Store, Employee, Shift } from './types';
 
 // Simple lightweight test runner
 function runTests() {
-  console.log("=== INICIANDO TESTES DA ESCOLA CONSTANCE ===");
+  console.log("=== INICIANDO TESTES DA ESCOLA VAREJO ===");
 
   const mockStores: Store[] = [
     {
