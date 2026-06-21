@@ -35,8 +35,8 @@ export default function DashboardPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
-    // Standardize default active week to June 9, 2026 (a Tuesday) for mock alignment
-    return getMonday(new Date('2026-06-09T12:00:00'));
+    // Standardize default active week to June 29, 2026 (contains July 1st)
+    return getMonday(new Date('2026-06-29T12:00:00'));
   });
 
   const [activeStoreFilter, setActiveStoreFilter] = useState<string>('all');

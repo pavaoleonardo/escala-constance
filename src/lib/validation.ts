@@ -170,17 +170,13 @@ export function runAllValidations(
 
       // B: Break compliance (mandatory by CLT — cannot be overridden by pay)
       const elapsed = getShiftElapsed(shift.start_time, shift.end_time);
-      if (elapsed > 6 && shift.break_duration_minutes < 60) {
+      const isSunday = new Date(shift.date + 'T12:00:00').getDay() === 0;
+      const minRequiredBreak = isSunday ? 15 : (elapsed > 6 ? 60 : (elapsed >= 4 ? 15 : 0));
+
+      if (shift.break_duration_minutes < minRequiredBreak) {
         alerts.push({
           type: 'clt',
-          message: `⚠️ <strong>${employee.name}</strong> precisa de intervalo mínimo de 60min em ${formatToDayMonth(shift.date)} (jornada > 6h, intervalo atual: ${shift.break_duration_minutes}min).`,
-          employeeId: employee.id,
-          date: shift.date
-        });
-      } else if (elapsed >= 4 && elapsed <= 6 && shift.break_duration_minutes < 15) {
-        alerts.push({
-          type: 'clt',
-          message: `⚠️ <strong>${employee.name}</strong> precisa de intervalo mínimo de 15min em ${formatToDayMonth(shift.date)} (jornada de 4-6h, intervalo atual: ${shift.break_duration_minutes}min).`,
+          message: `⚠️ <strong>${employee.name}</strong> precisa de intervalo mínimo de ${minRequiredBreak}min em ${formatToDayMonth(shift.date)} (jornada de ${elapsed.toFixed(1)}h, intervalo atual: ${shift.break_duration_minutes}min).`,
           employeeId: employee.id,
           date: shift.date
         });

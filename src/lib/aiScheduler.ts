@@ -3,7 +3,7 @@ import { getActiveWeekDates, getShiftElapsed } from './validation';
 import { defaultStores } from './mockData';
 
 /**
- * AI Local Solver — Escala Constance
+ * AI Local Solver — Escala Varejo
  *
  * Business Rules (as defined by store management):
  *
@@ -17,16 +17,13 @@ import { defaultStores } from './mockData';
  *   - Target: 3 vendedoras working; minimum 2 in exceptional cases.
  *   - All employees must have at least 1 Sunday off per month.
  *   - Employees are split into Group A (first half) and Group B (second half).
- *   - Week 0 (even weekOfMonth): Group A works Sunday, Group B has Sunday off.
- *   - Week 1 (odd weekOfMonth): Group B works Sunday, Group A has Sunday off.
+ *   - Perfect rotation alternates Group A and Group B using a continuous week index.
  *
- * DAY-OFF AFTER SUNDAY WORK (Mon, Tue, or Wed — based on shift type):
- *   - Morning worker  (pattern 0) → Monday off
- *   - Evening worker  (pattern 2) → Tuesday off
- *   - Intermediate    (pattern 1) → Wednesday off
+ * DAY-OFF AFTER SUNDAY WORK (Monday or Tuesday only):
+ *   - Alternates between Monday (0) and Tuesday (1) for Sunday workers to balance coverage.
  *
  * DAY-OFF FOR SUNDAY-OFF GROUP:
- *   - Thursday or Friday (alternating), freeing Mon–Wed for Sunday workers.
+ *   - Thursday or Friday (alternating), freeing Mon–Tue for Sunday workers.
  *
  * COVERAGE GOAL:
  *   - At least 2 employees per shift type across Mon–Sat.
@@ -39,16 +36,6 @@ const SHIFTS = [
   { start: '14:00', end: '20:00' }, // pattern 1 – Intermediate
   { start: '16:00', end: '22:00' }, // pattern 2 – Evening
 ];
-
-// Day-off mapping for Sunday workers (by their shift pattern)
-// pattern 0 (Morning) → Mon (dayIdx 0)
-// pattern 2 (Evening) → Tue (dayIdx 1)
-// pattern 1 (Intermediate) → Wed (dayIdx 2)
-const SUNDAY_WORKER_DAYOFF: Record<number, number> = {
-  0: 0, // Morning  → Monday
-  2: 1, // Evening  → Tuesday
-  1: 2, // Intermediate → Wednesday
-};
 
 export function generateAISchedule(
   storeId: string,
@@ -71,8 +58,10 @@ export function generateAISchedule(
 
   const generatedShifts: Omit<Shift, 'id'>[] = [];
 
-  // Which week of month are we in (0-indexed)
-  const weekOfMonth = Math.floor((currentWeekStart.getDate() - 1) / 7);
+  // Continuous week number from a fixed epoch Monday (Jan 5, 2026) to avoid monthly boundary resets
+  const epoch = new Date('2026-01-05T00:00:00Z').getTime();
+  const diffMs = currentWeekStart.getTime() - epoch;
+  const continuousWeekIdx = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
 
   const n = storeEmployees.length;
 
@@ -81,9 +70,7 @@ export function generateAISchedule(
   // Group A = indices 0..(groupASize-1), Group B = the rest
 
   // Determine which group works Sunday this week
-  // Even weekOfMonth: Group A works, Group B has Sunday off
-  // Odd weekOfMonth:  Group B works, Group A has Sunday off
-  const groupAWorksSunday = weekOfMonth % 2 === 0;
+  const groupAWorksSunday = continuousWeekIdx % 2 === 0;
 
   // Assign each employee:
   // - whether they work Sunday
@@ -93,7 +80,8 @@ export function generateAISchedule(
   const shiftPatterns = new Map<string, number>();        // emp.id → 0|1|2
   const worksSunday = new Map<string, boolean>();         // emp.id → boolean
 
-  // Counters for spreading Sunday-off group folgas across Thu/Fri
+  // Counters for alternating off-days
+  let sundayWorkerCount = 0;
   let sundayOffCounter = 0;
 
   storeEmployees.forEach((emp, empIndex) => {
@@ -106,9 +94,10 @@ export function generateAISchedule(
     shiftPatterns.set(emp.id, pattern);
 
     if (worksThisSunday) {
-      // Day-off is Mon, Tue, or Wed — determined by their shift pattern
-      const dayOff = SUNDAY_WORKER_DAYOFF[pattern];
+      // Day-off is strictly Monday (0) or Tuesday (1), alternating
+      const dayOff = sundayWorkerCount % 2 === 0 ? 0 : 1;
       restDayAssignments.set(emp.id, dayOff);
+      sundayWorkerCount++;
     } else {
       // Day-off is Thu (3) or Fri (4), alternating
       const dayOff = 3 + (sundayOffCounter % 2);
@@ -163,12 +152,9 @@ export function generateAISchedule(
           continue;
         }
 
-        // Assign a Sunday 6h shift from the distributed Sunday windows
+        // Assign a Sunday shift from the distributed Sunday windows
         const sundayShift = sundayShiftPatterns[sundayWorkerIdx % sundayShiftPatterns.length];
         sundayWorkerIdx++;
-
-        const elapsed = getShiftElapsed(sundayShift.start, sundayShift.end);
-        const breakMin = elapsed > 6 ? 60 : (elapsed >= 4 ? 15 : 0);
 
         generatedShifts.push({
           employee_id: emp.id,
@@ -176,7 +162,7 @@ export function generateAISchedule(
           date: currentDateStr,
           start_time: sundayShift.start,
           end_time: sundayShift.end,
-          break_duration_minutes: breakMin,
+          break_duration_minutes: 15, // 15 min break on Sunday as requested
           allow_overtime: false,
         });
         continue;
