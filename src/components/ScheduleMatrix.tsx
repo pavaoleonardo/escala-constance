@@ -1,6 +1,6 @@
 import React from 'react';
 import { Store, Employee, Shift, ScheduleAlert } from '../lib/types';
-import { getShiftDuration, getUniqueShifts } from '../lib/validation';
+import { getShiftDuration, getUniqueShifts, isDateInMonth } from '../lib/validation';
 
 interface ScheduleMatrixProps {
   stores: Store[];
@@ -57,7 +57,9 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
   showWarnings,
 }) => {
   const uniqueShifts = getUniqueShifts(shifts);
-  const allMonthDates = monthlyWeeks.flat().filter((d): d is string => d !== null);
+  // All dates in the grid (including prev-month padding days like Jun 29/30)
+  const allGridDates = monthlyWeeks.flat().filter((d): d is string => d !== null);
+  const allMonthDates = allGridDates; // kept for compatibility
 
   // Stores to render
   const storesToShow: Store[] =
@@ -126,8 +128,14 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
               </th>
 
               {monthlyWeeks.map((week, wIdx) => {
-                const firstDate = week.find(d => d !== null);
-                const lastDate = [...week].reverse().find(d => d !== null);
+                // For week label use only dates in the target month
+                const weekYear = monthlyWeeks[0][0] ? parseInt(monthlyWeeks[0][0].split('-')[0]) : new Date().getFullYear();
+                const weekMonth = monthlyWeeks[0].find(d => d !== null)?.split('-')[1] || '01';
+                const targetYear = parseInt(weekYear.toString());
+                const targetMonthIdx = parseInt(weekMonth) - 1;
+                const datesInMonth = week.filter((d): d is string => d !== null && isDateInMonth(d, targetYear, targetMonthIdx));
+                const firstDate = datesInMonth[0] || week.find(d => d !== null);
+                const lastDate = datesInMonth[datesInMonth.length - 1] || [...week].reverse().find(d => d !== null);
                 const fDay = firstDate ? parseInt(firstDate.split('-')[2]) : '';
                 const lDay = lastDate ? parseInt(lastDate.split('-')[2]) : '';
                 return (
@@ -161,11 +169,36 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
 
             {/* ── Row 2: Day-of-week + day number ── */}
             <tr>
-              {monthlyWeeks.map((week, wIdx) =>
-                week.map((dateStr, dIdx) => {
+              {monthlyWeeks.map((week, wIdx) => {
+                // Determine which month is being displayed (from the first month-owned date)
+                const firstMonthDate = monthlyWeeks.flat().find(d => {
+                  if (!d) return false;
+                  const yr = parseInt(d.split('-')[0]);
+                  const mo = parseInt(d.split('-')[1]) - 1;
+                  // Find first date that is the reference month
+                  return true; // placeholder — we use activeYear/activeMonthIndex below
+                });
+                return week.map((dateStr, dIdx) => {
                   const dayNum = dateStr ? parseInt(dateStr.split('-')[2]) : '';
                   const isWeekend = dIdx >= 5;
                   const isFirstDayOfWeek = dIdx === 0;
+                  // Check if this date belongs to the displayed month by comparing its month
+                  const isPrevMonth = dateStr ? (() => {
+                    const parts = dateStr.split('-');
+                    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                    // We treat it as prev-month if its date is < first day of the target month's first date
+                    const refMonthDates = monthlyWeeks.flat().filter((x): x is string => x !== null);
+                    const firstOfMonth = refMonthDates.find(x => {
+                      const p = x.split('-');
+                      const dInMonth = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+                      return dInMonth.getDate() === 1;
+                    });
+                    if (firstOfMonth) {
+                      const refDate = new Date(firstOfMonth + 'T00:00:00');
+                      return d < refDate;
+                    }
+                    return false;
+                  })() : false;
                   return (
                     <th
                       key={`hd-${wIdx}-${dIdx}`}
@@ -175,21 +208,23 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                         padding: '5px 3px',
                         borderLeft: isFirstDayOfWeek ? '2px solid #e2e8f0' : undefined,
                         borderBottom: '2px solid #e2e8f0',
-                        color: isWeekend ? '#80612c' : '#334155',
-                        fontWeight: isWeekend ? 700 : 600,
-                        backgroundColor: WEEK_HEADER_BG[wIdx % WEEK_HEADER_BG.length],
-                        opacity: dateStr ? 1 : 0.35,
+                        color: isPrevMonth ? '#adb5bd' : isWeekend ? '#80612c' : '#334155',
+                        fontWeight: isWeekend && !isPrevMonth ? 700 : 600,
+                        backgroundColor: isPrevMonth
+                          ? 'rgba(148,163,184,0.08)'
+                          : WEEK_HEADER_BG[wIdx % WEEK_HEADER_BG.length],
+                        opacity: dateStr ? (isPrevMonth ? 0.6 : 1) : 0.35,
                         whiteSpace: 'nowrap',
                       }}
                     >
                       <div>{DAY_SHORT[dIdx]}</div>
-                      <div style={{ fontSize: '0.68rem', fontWeight: 400, color: '#94a3b8', marginTop: '1px' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 400, color: isPrevMonth ? '#cbd5e1' : '#94a3b8', marginTop: '1px' }}>
                         {dayNum !== '' ? dayNum : '–'}
                       </div>
                     </th>
                   );
-                })
-              )}
+                });
+              })}
             </tr>
           </thead>
 
@@ -355,6 +390,22 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                 );
                               }
 
+                              // Check if this date is from the previous month (padding days)
+                              const isPrevMonthDate = (() => {
+                                const refMonthDates = allGridDates;
+                                const firstOfMonth = refMonthDates.find(x => {
+                                  const p = x.split('-');
+                                  return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2])).getDate() === 1;
+                                });
+                                if (firstOfMonth) {
+                                  const p = date.split('-');
+                                  const d = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+                                  const ref = new Date(firstOfMonth + 'T00:00:00');
+                                  return d < ref;
+                                }
+                                return false;
+                              })();
+
                               const dayShifts = uniqueShifts.filter(
                                 s =>
                                   s.employee_id === employee.id &&
@@ -371,12 +422,13 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                   key={date}
                                   className="matrix-cell"
                                   style={{
-                                    backgroundColor: weekBg,
+                                    backgroundColor: isPrevMonthDate ? 'rgba(148,163,184,0.06)' : weekBg,
                                     borderLeft: isFirstDayOfWeek ? '2px solid #e2e8f0' : undefined,
                                     position: 'relative',
                                     padding: '0.4rem',
                                     height: 84,
                                     verticalAlign: 'middle',
+                                    opacity: isPrevMonthDate ? 0.65 : 1,
                                   }}
                                 >
                                   {dayShifts.length === 0 ? (

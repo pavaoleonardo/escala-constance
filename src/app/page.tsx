@@ -217,16 +217,19 @@ export default function DashboardPage() {
         ? (activeMonthIndex === 11 ? 0 : activeMonthIndex + 1)
         : activeMonthIndex;
 
-      // Find all weeks in the target calendar month
+      // Find all weeks in the target calendar month (weeks may include prev-month days)
       const targetWeeks = getMonthlyWeeks(targetYear, targetMonth);
       const allOptimizedShifts: Omit<Shift, 'id'>[] = [];
 
+      const targetMonthStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
+
       const processedMondays = new Set<string>();
       targetWeeks.forEach(week => {
-        const firstNonNull = week.find(d => d !== null);
-        if (!firstNonNull) return;
+        // Use the first non-null date (could be from prev month for the first week)
+        const firstDate = week.find(d => d !== null);
+        if (!firstDate) return;
 
-        const monday = getMonday(new Date(firstNonNull + 'T12:00:00'));
+        const monday = getMonday(new Date(firstDate + 'T12:00:00'));
         const mondayStr = monday.toISOString().split('T')[0];
 
         if (processedMondays.has(mondayStr)) return;
@@ -234,25 +237,33 @@ export default function DashboardPage() {
 
         const weekShifts = generateAISchedule(storeId, employees, monday, shifts);
         
-        // Filter: only keep shifts that fall within the target calendar month
-        const targetMonthStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-        const monthShifts = weekShifts.filter(s => s.date.startsWith(targetMonthStr));
-        allOptimizedShifts.push(...monthShifts);
+        // Keep ALL 7 days of the first transition week (includes June 29/30 for July)
+        // Only for subsequent weeks, filter to the target month
+        const isFirstWeek = processedMondays.size === 1;
+        if (isFirstWeek) {
+          // Include all days in this week: the transition week shows prev-month context
+          allOptimizedShifts.push(...weekShifts);
+        } else {
+          // Filter: only keep shifts within the target calendar month
+          const monthShifts = weekShifts.filter(s => s.date.startsWith(targetMonthStr));
+          allOptimizedShifts.push(...monthShifts);
+        }
       });
 
-      // Target month formatted string for filtering
-      const targetMonthPrefix = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-
       // Delete ALL existing shifts for employees of this store in the target month
+      // Also delete the pre-month transition days (e.g. Jun 29/30) for this store
       const storeEmployeeIds = employees
         .filter(e => e.home_store_id === storeId)
         .map(e => e.id);
       
-      const shiftsToDelete = shifts.filter(
-        s => s.date.startsWith(targetMonthPrefix) && (
-          s.store_id === storeId || storeEmployeeIds.includes(s.employee_id)
-        )
-      );
+      // Compute all dates in the grid for deletion scope
+      const allGridDates = targetWeeks.flat().filter((d): d is string => d !== null);
+      
+      const shiftsToDelete = shifts.filter(s => {
+        const isStoreShift = s.store_id === storeId || storeEmployeeIds.includes(s.employee_id);
+        const isInGrid = allGridDates.includes(s.date);
+        return isStoreShift && isInGrid;
+      });
       
       const toDeleteIds = shiftsToDelete.map(s => s.id);
       

@@ -231,7 +231,10 @@ export function runAllValidations(
 }
 
 // Get all weeks of a given month (Monday to Sunday)
-// Each week is an array of 7 elements (either YYYY-MM-DD or null)
+// The first week may include the last days of the previous month.
+// Each week is an array of 7 elements (YYYY-MM-DD strings).
+// Days outside the target month still have their real date string so they can
+// be shown in the grid (dimmed) — use isCurrentMonth() to distinguish them.
 export function getMonthlyWeeks(year: number, month: number): (string | null)[][] {
   const weeks: (string | null)[][] = [];
   const firstDay = new Date(year, month, 1);
@@ -244,9 +247,11 @@ export function getMonthlyWeeks(year: number, month: number): (string | null)[][
   const currentDay = new Date(firstDay);
   let currentWeek: (string | null)[] = [];
 
-  // Fill initial days with null
-  for (let i = 0; i < startPadding; i++) {
-    currentWeek.push(null);
+  // Fill initial days with the ACTUAL previous-month dates
+  // so that e.g. June 29 and June 30 appear in the first week of July
+  for (let i = startPadding; i >= 1; i--) {
+    const prevDate = new Date(year, month, 1 - i);
+    currentWeek.push(formatDateString(prevDate));
   }
 
   while (currentDay <= lastDay) {
@@ -269,6 +274,12 @@ export function getMonthlyWeeks(year: number, month: number): (string | null)[][
   }
 
   return weeks;
+}
+
+/** Returns true if the date string (YYYY-MM-DD) belongs to the given year/month */
+export function isDateInMonth(dateStr: string, year: number, month: number): boolean {
+  const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+  return dateStr.startsWith(prefix);
 }
 
 // Run validation calculations across the entire month

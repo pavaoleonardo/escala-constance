@@ -22,14 +22,22 @@ import { defaultStores } from './mockData';
  *   - Strictly Monday (empIndex even) or Tuesday (empIndex odd).
  *   - No Wednesday or other days.
  *
- * COVERAGE GOAL:
- *   - Even distribution across all three shift patterns per store.
+ * SHIFT TIME CONTINUITY:
+ *   - If the employee has existing shifts in the previous 2 months, their shift
+ *     time (morning/intermediate/evening) is preserved from the most recent data.
+ *   - Falls back to: default_shift field → position rotation.
  */
 
 const SHIFTS = [
   { start: '10:00', end: '16:00' }, // pattern 0 – Morning
   { start: '14:00', end: '20:00' }, // pattern 1 – Intermediate
   { start: '16:00', end: '22:00' }, // pattern 2 – Evening
+];
+
+const SUNDAY_SHIFTS = [
+  { start: '10:00', end: '18:00' }, // Morning on Sunday (adjusted for 8h window)
+  { start: '12:00', end: '20:00' }, // Mid on Sunday (standard)
+  { start: '14:00', end: '20:00' }, // Afternoon on Sunday
 ];
 
 /** Count how many Sundays exist in a given month */
@@ -55,6 +63,30 @@ function sundayIndexInMonth(sundayDate: Date): number {
     if (new Date(year, month, d).getDay() === 0) idx++;
   }
   return idx;
+}
+
+/**
+ * Detect which shift pattern an employee is using based on their most recent shifts.
+ * Returns 0 (morning), 1 (intermediate), or 2 (evening).
+ */
+function detectShiftPattern(employeeId: string, existingShifts: Shift[]): number | null {
+  // Look at non-folga shifts for this employee, most recent first
+  const empShifts = existingShifts
+    .filter(s => {
+      if (s.employee_id !== employeeId) return false;
+      const isFolga = (s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time;
+      const isSunday = new Date(s.date + 'T12:00:00').getDay() === 0;
+      return !isFolga && !isSunday;
+    })
+    .sort((a, b) => b.date.localeCompare(a.date)); // most recent first
+
+  if (empShifts.length === 0) return null;
+
+  const { start_time } = empShifts[0];
+  if (start_time === '10:00') return 0;
+  if (start_time === '14:00') return 1;
+  if (start_time === '16:00') return 2;
+  return null;
 }
 
 export function generateAISchedule(
@@ -93,11 +125,15 @@ export function generateAISchedule(
     // ── Weekday rest: strictly Mon or Tue ─────────────────────────────────
     restDayMap.set(emp.id, empIndex % 2); // even → Mon(0), odd → Tue(1)
 
-    // ── Shift pattern: honour employee preference, else rotate ────────────
-    let pattern = empIndex % 3;
-    if (emp.default_shift === 'morning')      pattern = 0;
-    else if (emp.default_shift === 'intermediate') pattern = 1;
-    else if (emp.default_shift === 'evening') pattern = 2;
+    // ── Shift pattern: read from history first, then preference, then rotate ─
+    let pattern: number;
+    const detectedPattern = detectShiftPattern(emp.id, existingShifts);
+    if (detectedPattern !== null) {
+      pattern = detectedPattern;
+    } else if (emp.default_shift === 'morning')       { pattern = 0; }
+    else if (emp.default_shift === 'intermediate')     { pattern = 1; }
+    else if (emp.default_shift === 'evening')          { pattern = 2; }
+    else { pattern = empIndex % 3; }
     shiftPattern.set(emp.id, pattern);
 
     // ── Sunday: each employee rests exactly once per month ────────────────
@@ -108,8 +144,6 @@ export function generateAISchedule(
 
   // ── Build shifts ──────────────────────────────────────────────────────────
   const generatedShifts: Omit<Shift, 'id'>[] = [];
-
-  let sundayWorkerIdx = 0;
 
   storeEmployees.forEach((emp) => {
     const restDay        = restDayMap.get(emp.id) ?? 0;
@@ -155,10 +189,9 @@ export function generateAISchedule(
             date:                   currentDateStr,
             start_time:             sundayOpen,
             end_time:               sundayClose,
-            break_duration_minutes: 15,
+            break_duration_minutes: 60, // Sunday requires 60min break (CLT)
             allow_overtime:         false,
           });
-          sundayWorkerIdx++;
         }
         continue;
       }
