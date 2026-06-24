@@ -1,5 +1,5 @@
 import { Employee, Shift } from './types';
-import { getActiveWeekDates, getShiftElapsed } from './validation';
+import { getActiveWeekDates } from './validation';
 import { defaultStores } from './mockData';
 
 /**
@@ -8,34 +8,54 @@ import { defaultStores } from './mockData';
  * Business Rules (as defined by store management):
  *
  * SHIFTS (all days):
- *   - Morning   (Manhã):        10:00–16:00
- *   - Intermediate (Intermediário): 14:00–20:00
- *   - Evening   (Noite):        16:00–22:00
- *   All shifts are 6h. CLT break: 15 min (shift ≤ 6h, but ≥ 4h).
+ *   - Morning       (Manhã):        10:00–16:00
+ *   - Intermediate  (Intermediário): 14:00–20:00
+ *   - Evening       (Noite):        16:00–22:00
+ *   All shifts are 6h. CLT break: 15 min (shift ≤ 6h but ≥ 4h).
  *
- * SUNDAY:
- *   - Target: 3 vendedoras working; minimum 2 in exceptional cases.
- *   - All employees must have at least 1 Sunday off per month.
- *   - Employees are split into Group A (first half) and Group B (second half).
- *   - Perfect rotation alternates Group A and Group B using a continuous week index.
+ * SUNDAY RULE:
+ *   - Each employee rests exactly ONE Sunday per month.
+ *   - Their "off Sunday" is determined by their position index mod the number
+ *     of Sundays in that month — distributing rest Sundays evenly across the team.
  *
- * DAY-OFF AFTER SUNDAY WORK (Monday or Tuesday only):
- *   - Alternates between Monday (0) and Tuesday (1) for Sunday workers to balance coverage.
- *
- * DAY-OFF FOR SUNDAY-OFF GROUP:
- *   - Thursday or Friday (alternating), freeing Mon–Tue for Sunday workers.
+ * WEEKDAY REST DAY:
+ *   - Strictly Monday (empIndex even) or Tuesday (empIndex odd).
+ *   - No Wednesday or other days.
  *
  * COVERAGE GOAL:
- *   - At least 2 employees per shift type across Mon–Sat.
- *   - Even distribution across all three shift patterns.
+ *   - Even distribution across all three shift patterns per store.
  */
 
-// The three 6h shift patterns
 const SHIFTS = [
   { start: '10:00', end: '16:00' }, // pattern 0 – Morning
   { start: '14:00', end: '20:00' }, // pattern 1 – Intermediate
   { start: '16:00', end: '22:00' }, // pattern 2 – Evening
 ];
+
+/** Count how many Sundays exist in a given month */
+function countSundaysInMonth(year: number, month: number): number {
+  const last = new Date(year, month + 1, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= last; d++) {
+    if (new Date(year, month, d).getDay() === 0) count++;
+  }
+  return count;
+}
+
+/**
+ * Return the 0-based index of this Sunday within its month
+ * (0 = first Sunday of the month, 1 = second, etc.)
+ */
+function sundayIndexInMonth(sundayDate: Date): number {
+  const year = sundayDate.getFullYear();
+  const month = sundayDate.getMonth();
+  const dayOfMonth = sundayDate.getDate();
+  let idx = 0;
+  for (let d = 1; d < dayOfMonth; d++) {
+    if (new Date(year, month, d).getDay() === 0) idx++;
+  }
+  return idx;
+}
 
 export function generateAISchedule(
   storeId: string,
@@ -45,174 +65,117 @@ export function generateAISchedule(
 ): Omit<Shift, 'id'>[] {
   const weekDates = getActiveWeekDates(currentWeekStart);
 
-  // Filter active employees belonging to this store
   const storeEmployees = employees.filter(
     emp => emp.active && emp.home_store_id === storeId
   );
 
   if (storeEmployees.length === 0) return [];
 
-  // Find store Sunday hours for the Sunday shift window
   const store = defaultStores.find(s => s.id === storeId);
-  const sundayOpen = store?.operating_hours.sunday.open || '12:00';
+  const sundayOpen  = store?.operating_hours.sunday.open  || '12:00';
   const sundayClose = store?.operating_hours.sunday.close || '20:00';
 
-  const generatedShifts: Omit<Shift, 'id'>[] = [];
+  // ── Sunday context for this week ──────────────────────────────────────────
+  const sundayDateStr = weekDates[6]; // index 6 = Sunday
+  const sundayDate    = new Date(sundayDateStr + 'T12:00:00');
+  const sundayYear    = sundayDate.getFullYear();
+  const sundayMonth   = sundayDate.getMonth();
 
-  // Continuous week number from a fixed epoch Monday (Jan 5, 2026) to avoid monthly boundary resets
-  const epoch = new Date('2026-01-05T00:00:00Z').getTime();
-  const diffMs = currentWeekStart.getTime() - epoch;
-  const continuousWeekIdx = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+  const numSundaysInMonth = countSundaysInMonth(sundayYear, sundayMonth);
+  const thisSundayIdx     = sundayIndexInMonth(sundayDate);
 
-  const n = storeEmployees.length;
-
-  // Split employees into two groups of equal (or near-equal) size
-  const groupASize = Math.ceil(n / 2);
-  // Group A = indices 0..(groupASize-1), Group B = the rest
-
-  // Determine which group works Sunday this week
-  const groupAWorksSunday = continuousWeekIdx % 2 === 0;
-
-  // Assign each employee:
-  // - whether they work Sunday
-  // - their shift pattern (0=Morning, 1=Intermediate, 2=Evening)
-  // - their rest day
-  const restDayAssignments = new Map<string, number>();   // emp.id → dayIdx (0=Mon..6=Sun)
-  const shiftPatterns = new Map<string, number>();        // emp.id → 0|1|2
-  const worksSunday = new Map<string, boolean>();         // emp.id → boolean
+  // ── Assignments ───────────────────────────────────────────────────────────
+  const restDayMap    = new Map<string, number>();  // emp.id → dayIdx 0=Mon,1=Tue
+  const shiftPattern  = new Map<string, number>();  // emp.id → 0|1|2
+  const worksSunday   = new Map<string, boolean>(); // emp.id → true if works this Sunday
 
   storeEmployees.forEach((emp, empIndex) => {
-    const inGroupA = empIndex < groupASize;
-    const worksThisSunday = groupAWorksSunday ? inGroupA : !inGroupA;
-    worksSunday.set(emp.id, worksThisSunday);
+    // ── Weekday rest: strictly Mon or Tue ─────────────────────────────────
+    restDayMap.set(emp.id, empIndex % 2); // even → Mon(0), odd → Tue(1)
 
-    // Shift pattern: prioritize employee default shift preference, otherwise rotate
+    // ── Shift pattern: honour employee preference, else rotate ────────────
     let pattern = empIndex % 3;
-    if (emp.default_shift === 'morning') pattern = 0;
+    if (emp.default_shift === 'morning')      pattern = 0;
     else if (emp.default_shift === 'intermediate') pattern = 1;
     else if (emp.default_shift === 'evening') pattern = 2;
-    shiftPatterns.set(emp.id, pattern);
+    shiftPattern.set(emp.id, pattern);
 
-    // Off-day is strictly Monday (0), Tuesday (1), or Wednesday (2)
-    let assignedRestDay = -1;
-
-    const monDateStr = weekDates[0];
-    const tueDateStr = weekDates[1];
-    // Check if the week contains days from June (transition week)
-    const isTransitionWeek = monDateStr.startsWith('2026-06') || tueDateStr.startsWith('2026-06');
-
-    if (isTransitionWeek) {
-      // Look at existing shifts in June (Monday June 29 / Tuesday June 30)
-      const monShift = existingShifts.find(s => s.employee_id === emp.id && s.date === monDateStr);
-      const tueShift = existingShifts.find(s => s.employee_id === emp.id && s.date === tueDateStr);
-
-      const monIsFolga = monShift ? ((monShift.start_time === '00:00' && monShift.end_time === '00:00') || !monShift.start_time) : false;
-      const tueIsFolga = tueShift ? ((tueShift.start_time === '00:00' && tueShift.end_time === '00:00') || !tueShift.start_time) : false;
-
-      if (monIsFolga) {
-        assignedRestDay = 0; // Preserve off-day on Monday June 29
-      } else if (tueIsFolga) {
-        assignedRestDay = 1; // Preserve off-day on Tuesday June 30
-      } else {
-        assignedRestDay = 2; // Both worked in June, assign rest to Wednesday July 1st
-      }
-    } else {
-      // Normal week: distribute strictly on Mon (0), Tue (1) and eventually Wed (2) depending on employee count
-      const numOptions = n >= 5 ? 3 : 2;
-      assignedRestDay = empIndex % numOptions;
-    }
-
-    restDayAssignments.set(emp.id, assignedRestDay);
+    // ── Sunday: each employee rests exactly once per month ────────────────
+    // Employee i rests on Sunday index (i % numSundaysInMonth).
+    const empOffSundayIdx = empIndex % numSundaysInMonth;
+    worksSunday.set(emp.id, thisSundayIdx !== empOffSundayIdx);
   });
 
-  // Build the Sunday shift schedule for each worker
-  // Distribute 3 different 6h windows across the Sunday opening hours
-  const sundayShiftPatterns = getSundayShifts(sundayOpen, sundayClose);
+  // ── Build shifts ──────────────────────────────────────────────────────────
+  const generatedShifts: Omit<Shift, 'id'>[] = [];
 
   let sundayWorkerIdx = 0;
 
-  // Build the full week schedule for each employee
-  storeEmployees.forEach((emp, empIndex) => {
-    const restDay = restDayAssignments.get(emp.id) ?? 4;
-    const pattern = shiftPatterns.get(emp.id) ?? 0;
-    const empWorksSunday = worksSunday.get(emp.id) ?? false;
+  storeEmployees.forEach((emp) => {
+    const restDay        = restDayMap.get(emp.id) ?? 0;
+    const pattern        = shiftPattern.get(emp.id) ?? 0;
+    const empWorksSunday = worksSunday.get(emp.id) ?? true;
 
     for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
       const currentDateStr = weekDates[dayIdx];
-      const isSunday = dayIdx === 6;
+      const isSunday       = dayIdx === 6;
 
-      // Rest day → Folga
-      if (dayIdx === restDay) {
+      // Weekday rest day → Folga
+      if (!isSunday && dayIdx === restDay) {
         generatedShifts.push({
-          employee_id: emp.id,
-          store_id: storeId,
-          date: currentDateStr,
-          start_time: '00:00',
-          end_time: '00:00',
+          employee_id:            emp.id,
+          store_id:               storeId,
+          date:                   currentDateStr,
+          start_time:             '00:00',
+          end_time:               '00:00',
           break_duration_minutes: 0,
-          allow_overtime: false,
+          allow_overtime:         false,
         });
         continue;
       }
 
-      // Sunday — only for employees who work this Sunday
+      // Sunday
       if (isSunday) {
         if (!empWorksSunday) {
-          // Sunday off (this employee is in the off-group)
+          // This employee's one Sunday off this month
           generatedShifts.push({
-            employee_id: emp.id,
-            store_id: storeId,
-            date: currentDateStr,
-            start_time: '00:00',
-            end_time: '00:00',
+            employee_id:            emp.id,
+            store_id:               storeId,
+            date:                   currentDateStr,
+            start_time:             '00:00',
+            end_time:               '00:00',
             break_duration_minutes: 0,
-            allow_overtime: false,
+            allow_overtime:         false,
           });
-          continue;
+        } else {
+          // Works Sunday — use the store's Sunday window
+          generatedShifts.push({
+            employee_id:            emp.id,
+            store_id:               storeId,
+            date:                   currentDateStr,
+            start_time:             sundayOpen,
+            end_time:               sundayClose,
+            break_duration_minutes: 15,
+            allow_overtime:         false,
+          });
+          sundayWorkerIdx++;
         }
-
-        // Assign a Sunday shift from the distributed Sunday windows
-        const sundayShift = sundayShiftPatterns[sundayWorkerIdx % sundayShiftPatterns.length];
-        sundayWorkerIdx++;
-
-        generatedShifts.push({
-          employee_id: emp.id,
-          store_id: storeId,
-          date: currentDateStr,
-          start_time: sundayShift.start,
-          end_time: sundayShift.end,
-          break_duration_minutes: 15, // 15 min break on Sunday as requested
-          allow_overtime: false,
-        });
         continue;
       }
 
-      // Weekday / Saturday: use the employee's assigned 6h shift pattern
+      // Regular weekday / Saturday
       const shift = SHIFTS[pattern];
       generatedShifts.push({
-        employee_id: emp.id,
-        store_id: storeId,
-        date: currentDateStr,
-        start_time: shift.start,
-        end_time: shift.end,
-        break_duration_minutes: 15, // 6h shift → 15 min CLT break
-        allow_overtime: false,
+        employee_id:            emp.id,
+        store_id:               storeId,
+        date:                   currentDateStr,
+        start_time:             shift.start,
+        end_time:               shift.end,
+        break_duration_minutes: 15,
+        allow_overtime:         false,
       });
     }
   });
 
   return generatedShifts;
-}
-
-/**
- * Given a store's Sunday open/close window, return up to 3 different 6h shift windows
- * that cover the full operating span as evenly as possible.
- */
-function getSundayShifts(open: string, close: string): { start: string; end: string }[] {
-  // Sunday has a single turn/shift covering the store operating hours (usually 12:00 to 20:00)
-  return [
-    { start: open, end: close },
-    { start: open, end: close },
-    { start: open, end: close },
-  ];
 }
