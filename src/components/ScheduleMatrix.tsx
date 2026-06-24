@@ -205,7 +205,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                         backgroundColor: isPrevMonth
                           ? 'rgba(148,163,184,0.08)'
                           : dIdx === 6
-                          ? '#f5eedf' // Solid light gold for Sunday header
+                          ? '#fee2e2' // Solid light red for Sunday header
                           : WEEK_HEADER_BG[wIdx % WEEK_HEADER_BG.length],
                         opacity: dateStr ? (isPrevMonth ? 0.6 : 1) : 0.35,
                         whiteSpace: 'nowrap',
@@ -380,7 +380,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                   <td
                                     key={`empty-${wIdx}-${dIdx}`}
                                     style={{
-                                      backgroundColor: dIdx === 6 ? 'rgba(175, 143, 86, 0.05)' : '#f8fafc', // Highlight empty Sunday cell
+                                      backgroundColor: dIdx === 6 ? 'rgba(239, 68, 68, 0.05)' : '#f8fafc', // Highlight empty Sunday cell
                                       opacity: 0.4,
                                       borderLeft: isFirstDayOfWeek ? '2px solid #e2e8f0' : undefined,
                                       padding: '0.5rem',
@@ -429,7 +429,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                     backgroundColor: isPrevMonthDate
                                       ? 'rgba(148,163,184,0.06)'
                                       : dIdx === 6
-                                      ? 'rgba(175, 143, 86, 0.12)' // Highlight Sunday cell
+                                      ? 'rgba(239, 68, 68, 0.08)' // Highlight Sunday cell
                                       : weekBg,
                                     borderLeft: isFirstDayOfWeek ? '2px solid #e2e8f0' : undefined,
                                     position: 'relative',
@@ -445,7 +445,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                     <div
                                       className="shift-card shift-card-empty"
                                       onClick={() => onCellClick(employee.id, date, store.id)}
-                                      style={dIdx === 6 ? { backgroundColor: 'rgba(175, 143, 86, 0.08)', borderColor: 'rgba(175, 143, 86, 0.3)' } : undefined}
+                                      style={dIdx === 6 ? { backgroundColor: 'rgba(239, 68, 68, 0.06)', borderColor: 'rgba(239, 68, 68, 0.3)' } : undefined}
                                     >
                                       <span className="empty-plus">+</span>
                                     </div>
@@ -461,7 +461,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                             key={shift.id}
                                             className="shift-card shift-card-folga"
                                             onClick={() => onCellClick(employee.id, date, store.id, shift)}
-                                            style={dIdx === 6 ? { backgroundColor: '#f5eedf', borderColor: 'rgba(175, 143, 86, 0.3)' } : undefined}
+                                            style={dIdx === 6 ? { backgroundColor: '#fdf3f3', borderColor: 'rgba(239, 68, 68, 0.25)' } : undefined}
                                           >
                                             <span className="shift-time">Folga</span>
                                           </div>
@@ -483,7 +483,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                           key={shift.id}
                                           className="shift-card shift-card-active"
                                           onClick={() => onCellClick(employee.id, date, store.id, shift)}
-                                          style={dIdx === 6 ? { backgroundColor: '#fdfbf7', borderColor: 'rgba(175, 143, 86, 0.5)', borderLeftWidth: '4px' } : undefined}
+                                          style={dIdx === 6 ? { backgroundColor: '#fffdfd', borderColor: 'rgba(239, 68, 68, 0.4)', borderLeftColor: '#ef4444', borderLeftWidth: '4px' } : undefined}
                                         >
                                           <span className="shift-time">
                                             {shift.start_time} – {shift.end_time}

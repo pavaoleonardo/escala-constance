@@ -29,12 +29,11 @@ export const defaultStores: Store[] = [
 
 export const defaultEmployees: Employee[] = [
   // Store 1: Polo Shopping Indaiatuba
-  { id: 'emp-1', name: 'Ana Paula Rodrigues', role: 'Vendedora Supervisora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
-  { id: 'emp-9', name: 'Juliana Souza Neves', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
-  { id: 'emp-2', name: 'Bruno Alves Souza', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'intermediate' },
-  { id: 'emp-13', name: 'Marcos Oliveira', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
-  { id: 'emp-3', name: 'Elena Santos Dias', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
-  { id: 'emp-4', name: 'Gabriela Melo Reis', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'intermediate' },
+  { id: 'emp-1', name: 'Estela Cristina da Rocha', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
+  { id: 'emp-9', name: 'Lenilda Chalegre Muniz Matias', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
+  { id: 'emp-2', name: 'Caroline Salvador Pazim', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'intermediate' },
+  { id: 'emp-13', name: 'Stefanny', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
+  { id: 'emp-3', name: 'Karimme Gabriel Galante', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
   
   // Store 2: Shopping Parque das Bandeiras
   { id: 'emp-14', name: 'Patricia Lima', role: 'Vendedora Supervisora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
@@ -91,12 +90,7 @@ export const defaultShifts: Shift[] = [
   { id: 's-15', employee_id: 'emp-3', store_id: 'store-1', date: '2026-06-11', start_time: '16:00', end_time: '22:00', break_duration_minutes: 15, allow_overtime: false },
   { id: 's-44', employee_id: 'emp-3', store_id: 'store-1', date: '2026-06-12', start_time: '16:00', end_time: '22:00', break_duration_minutes: 15, allow_overtime: false },
 
-  // Gabriela Melo (Vendedora) - Mon to Fri (Intermediário: 14:00-20:00)
-  { id: 's-45', employee_id: 'emp-4', store_id: 'store-1', date: '2026-06-08', start_time: '14:00', end_time: '20:00', break_duration_minutes: 15, allow_overtime: false },
-  { id: 's-46', employee_id: 'emp-4', store_id: 'store-1', date: '2026-06-09', start_time: '14:00', end_time: '20:00', break_duration_minutes: 15, allow_overtime: false },
-  { id: 's-47', employee_id: 'emp-4', store_id: 'store-1', date: '2026-06-10', start_time: '14:00', end_time: '20:00', break_duration_minutes: 15, allow_overtime: false },
-  { id: 's-48', employee_id: 'emp-4', store_id: 'store-1', date: '2026-06-11', start_time: '14:00', end_time: '20:00', break_duration_minutes: 15, allow_overtime: false },
-  { id: 's-49', employee_id: 'emp-4', store_id: 'store-1', date: '2026-06-12', start_time: '14:00', end_time: '20:00', break_duration_minutes: 15, allow_overtime: false },
+
 
 
   // --- Store 2 (Parque das Bandeiras) — 6h shifts ---
