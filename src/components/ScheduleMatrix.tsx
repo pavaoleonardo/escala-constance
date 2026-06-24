@@ -215,6 +215,8 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                           : WEEK_HEADER_BG[wIdx % WEEK_HEADER_BG.length],
                         opacity: dateStr ? (isPrevMonth ? 0.6 : 1) : 0.35,
                         whiteSpace: 'nowrap',
+                        width: 110,
+                        minWidth: 110,
                       }}
                     >
                       <div>{DAY_SHORT[dIdx]}</div>
@@ -249,34 +251,53 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                         borderRight: '2px solid #e2e8f0',
                         borderTop: storeIdx > 0 ? '3px solid #cbd5e1' : '1px solid #e2e8f0',
                         borderBottom: '1px solid #e2e8f0',
-                        padding: '7px 10px',
+                        padding: '6px 10px',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 24,
-                            height: 24,
-                            borderRadius: 6,
-                            backgroundColor: badgeColor,
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: '0.78rem',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {store.name.charAt(0).toUpperCase()}
-                        </span>
-                        <span style={{ fontWeight: 700, fontSize: '0.8rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {store.name}
-                        </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 20,
+                              height: 20,
+                              borderRadius: 5,
+                              backgroundColor: badgeColor,
+                              color: '#fff',
+                              fontWeight: 700,
+                              fontSize: '0.72rem',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {store.name.charAt(0).toUpperCase()}
+                          </span>
+                          <span style={{ fontWeight: 700, fontSize: '0.78rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {store.name}
+                          </span>
+                        </div>
+                        <div style={{ paddingLeft: 28 }}>
+                          <span
+                            style={{
+                              fontSize: '0.66rem',
+                              color: '#64748b',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: 20,
+                              padding: '1px 6px',
+                              fontWeight: 500,
+                              display: 'inline-block',
+                              lineHeight: '1.2',
+                            }}
+                          >
+                            {storeEmps.length} {storeEmps.length === 1 ? 'funcionário' : 'funcionários'}
+                          </span>
+                        </div>
                       </div>
                     </td>
 
-                    {/* Rest of the row — decorative gradient + employee count */}
+                    {/* Rest of the row — decorative gradient */}
                     <td
                       colSpan={totalDayCols}
                       style={{
@@ -286,20 +307,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                         padding: '7px 14px',
                         verticalAlign: 'middle',
                       }}
-                    >
-                      <span
-                        style={{
-                          fontSize: '0.7rem',
-                          color: '#64748b',
-                          backgroundColor: '#ffffff',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: 20,
-                          padding: '1px 8px',
-                        }}
-                      >
-                        {storeEmps.length} funcionário{storeEmps.length !== 1 ? 's' : ''}
-                      </span>
-                    </td>
+                    />
                   </tr>
 
                   {/* ── Employee rows ── */}
@@ -383,6 +391,8 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                       borderLeft: isFirstDayOfWeek ? '2px solid #e2e8f0' : undefined,
                                       padding: '0.5rem',
                                       height: 84,
+                                      width: 110,
+                                      minWidth: 110,
                                     }}
                                   >
                                     <div style={{ height: 36 }} />
@@ -427,6 +437,8 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                     position: 'relative',
                                     padding: '0.4rem',
                                     height: 84,
+                                    width: 110,
+                                    minWidth: 110,
                                     verticalAlign: 'middle',
                                     opacity: isPrevMonthDate ? 0.65 : 1,
                                   }}
