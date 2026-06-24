@@ -89,8 +89,11 @@ export function generateAISchedule(
     const worksThisSunday = groupAWorksSunday ? inGroupA : !inGroupA;
     worksSunday.set(emp.id, worksThisSunday);
 
-    // Shift pattern: rotate across all employees so Mon–Sat coverage is balanced
-    const pattern = empIndex % 3;
+    // Shift pattern: prioritize employee default shift preference, otherwise rotate
+    let pattern = empIndex % 3;
+    if (emp.default_shift === 'morning') pattern = 0;
+    else if (emp.default_shift === 'intermediate') pattern = 1;
+    else if (emp.default_shift === 'evening') pattern = 2;
     shiftPatterns.set(emp.id, pattern);
 
     if (worksThisSunday) {

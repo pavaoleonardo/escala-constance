@@ -1,12 +1,12 @@
 import React from 'react';
 import { Store, Employee, Shift, ScheduleAlert } from '../lib/types';
-import { getShiftDuration, formatToDayMonth, DAY_SHORT_NAMES_PT, getUniqueShifts } from '../lib/validation';
+import { getShiftDuration, formatToDayMonth, getUniqueShifts } from '../lib/validation';
 
 interface ScheduleMatrixProps {
   stores: Store[];
   employees: Employee[];
   shifts: Shift[];
-  weekDates: string[];
+  monthlyWeeks: (string | null)[][];
   activeStoreFilter: string;
   activeAlerts: ScheduleAlert[];
   onCellClick: (employeeId: string, date: string, shift?: Shift) => void;
@@ -17,7 +17,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
   stores,
   employees,
   shifts,
-  weekDates,
+  monthlyWeeks,
   activeStoreFilter,
   activeAlerts,
   onCellClick,
@@ -27,6 +27,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
   let filteredEmployees = employees.filter(emp => emp.active);
 
   const uniqueShifts = getUniqueShifts(shifts);
+  const allMonthDates = monthlyWeeks.flat().filter((d): d is string => d !== null);
 
   if (activeStoreFilter !== 'all') {
     filteredEmployees = filteredEmployees.filter(emp => {
@@ -35,28 +36,14 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
         s =>
           s.employee_id === emp.id &&
           s.store_id === activeStoreFilter &&
-          weekDates.includes(s.date) &&
+          allMonthDates.includes(s.date) &&
           !((s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time)
       );
       return isHomeStore || hasFloatShiftHere;
     });
   }
 
-  // Group by store
-  const storeGroups: Record<string, { name: string; employees: Employee[] }> = {};
-  stores.forEach(st => {
-    storeGroups[st.id] = { name: st.name, employees: [] };
-  });
-  storeGroups['unknown'] = { name: 'Sem Loja Sede', employees: [] };
-
-  filteredEmployees.forEach(emp => {
-    const storeId = emp.home_store_id || 'unknown';
-    if (storeGroups[storeId]) {
-      storeGroups[storeId].employees.push(emp);
-    } else {
-      storeGroups['unknown'].employees.push(emp);
-    }
-  });
+  const DAY_SHORT_NAMES_DOM_SAB = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
     <div className="matrix-container card">
@@ -65,10 +52,9 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
           <thead>
             <tr id="matrix-header-row">
               <th className="col-employee">Funcionário / Cargo</th>
-              {weekDates.map((date, idx) => (
-                <th key={date} className="col-day">
-                  {DAY_SHORT_NAMES_PT[idx]}{' '}
-                  <span className="header-date">{formatToDayMonth(date)}</span>
+              {DAY_SHORT_NAMES_DOM_SAB.map(name => (
+                <th key={name} className="col-day" style={{ textAlign: 'center' }}>
+                  {name}
                 </th>
               ))}
             </tr>
@@ -81,22 +67,32 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                 </td>
               </tr>
             ) : (
-              Object.entries(storeGroups).map(([storeId, group]) => {
-                if (group.employees.length === 0) return null;
+              monthlyWeeks.map((week, weekIdx) => {
+                const weekDatesOnly = week.filter((d): d is string => d !== null);
 
                 return (
-                  <React.Fragment key={storeId}>
-                    {/* Store Header Row */}
-                    <tr className="store-group-row">
-                      <td colSpan={8}>{group.name}</td>
+                  <React.Fragment key={weekIdx}>
+                    {/* Week Header Row containing numbers of the month */}
+                    <tr className="store-group-row" style={{ backgroundColor: 'rgba(175, 143, 86, 0.1)', color: 'var(--color-gold-text)', fontWeight: 'bold' }}>
+                      <td style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
+                        Semana {weekIdx + 1}
+                      </td>
+                      {week.map((dateStr, dayIdx) => {
+                        const dayNum = dateStr ? dateStr.split('-')[2] : '';
+                        return (
+                          <td key={dayIdx} style={{ textAlign: 'center', fontSize: '0.9rem', padding: '0.5rem' }}>
+                            {dayNum ? parseInt(dayNum) : ''}
+                          </td>
+                        );
+                      })}
                     </tr>
 
-                    {/* Employee Rows */}
-                    {group.employees.map(employee => {
-                      // Calculate weekly hours
+                    {/* Employee Rows for this week */}
+                    {filteredEmployees.map(employee => {
+                      // Calculate weekly hours for this specific week block
                       let weeklyHours = 0;
                       uniqueShifts
-                        .filter(s => s.employee_id === employee.id && s.store_id === employee.home_store_id && weekDates.includes(s.date))
+                        .filter(s => s.employee_id === employee.id && s.store_id === employee.home_store_id && weekDatesOnly.includes(s.date))
                         .forEach(s => {
                           const isFolga = (s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time;
                           if (!isFolga) {
@@ -108,7 +104,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                       const overtimeHours = hasOvertime ? weeklyHours - employee.weekly_hours_contract : 0;
 
                       return (
-                        <tr key={employee.id} className="employee-row">
+                        <tr key={`${employee.id}-${weekIdx}`} className="employee-row">
                           {/* Employee Meta */}
                           <td className="col-employee">
                             <div className="employee-cell-info">
@@ -126,8 +122,17 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                           </td>
 
                           {/* Day Columns */}
-                          {weekDates.map(date => {
-                            // Only show shifts for the employee's home store (no cross-store)
+                          {week.map((date, dayIdx) => {
+                            if (!date) {
+                              // Day is outside the active month range
+                              return (
+                                <td key={`empty-${dayIdx}`} className="matrix-cell empty-month-cell" style={{ backgroundColor: '#f8fafc', opacity: 0.4 }}>
+                                  <div className="shift-card-empty-disabled" style={{ height: '36px' }} />
+                                </td>
+                              );
+                            }
+
+                            // Active shift for employee
                             const dayShifts = uniqueShifts.filter(
                               s => s.employee_id === employee.id && s.date === date && s.store_id === employee.home_store_id
                             );
@@ -153,37 +158,25 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                           key={shift.id}
                                           className="shift-card shift-card-folga"
                                           onClick={() => onCellClick(employee.id, date, shift)}
+                                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.4rem 0' }}
                                         >
-                                          <span className="shift-time">Folga</span>
+                                          <span className="shift-time" style={{ fontWeight: '600', color: 'var(--text-muted)' }}>Folga</span>
                                         </div>
                                       );
                                     }
-
-                                    const storeIdx = stores.findIndex(s => s.id === shift.store_id);
-                                    const storeShort = stores[storeIdx]
-                                      ? stores[storeIdx].name.replace('Constance ', '')
-                                      : 'Loja';
-
-                                    const duration = getShiftDuration(
-                                      shift.start_time,
-                                      shift.end_time,
-                                      shift.break_duration_minutes
-                                    );
 
                                     return (
                                       <div
                                         key={shift.id}
                                         className="shift-card shift-card-active"
                                         onClick={() => onCellClick(employee.id, date, shift)}
+                                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.4rem 0' }}
                                       >
-                                        <span className="shift-time">
-                                          {shift.start_time} - {shift.end_time}
+                                        <span className="shift-time" style={{ fontWeight: 'bold', fontSize: '1.25rem', color: 'var(--color-gold-text)' }}>
+                                          X
                                         </span>
-                                        <span className="shift-hours-info">
-                                          ({duration.toFixed(1)}h | int: {shift.break_duration_minutes}m)
-                                        </span>
-                                        <span className={`shift-store store-tag-${storeIdx >= 0 ? storeIdx : '0'}`}>
-                                          {storeShort}
+                                        <span className="shift-hours-info" style={{ fontSize: '0.7rem', opacity: 0.8, marginTop: '2px', color: 'var(--text-muted)' }}>
+                                          {shift.start_time}-{shift.end_time}
                                         </span>
                                       </div>
                                     );

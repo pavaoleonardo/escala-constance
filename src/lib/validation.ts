@@ -226,6 +226,85 @@ export function runAllValidations(
   // NO coverage checks — employees can work without a supervisora
   // NO Sunday rotation alerts — the scheduler handles it automatically
   // NO weekly hours alerts — overtime is calculated and paid, not blocked
-
+ 
   return alerts;
+}
+
+// Get all weeks of a given month (Sunday to Saturday)
+// Each week is an array of 7 elements (either YYYY-MM-DD or null)
+export function getMonthlyWeeks(year: number, month: number): (string | null)[][] {
+  const weeks: (string | null)[][] = [];
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  // Sunday (0) to Saturday (6)
+  // Find the day of the week for the 1st of the month
+  const startDayOfWeek = firstDay.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+
+  const currentDay = new Date(firstDay);
+  let currentWeek: (string | null)[] = [];
+
+  // Fill initial days with null
+  for (let i = 0; i < startDayOfWeek; i++) {
+    currentWeek.push(null);
+  }
+
+  while (currentDay <= lastDay) {
+    currentWeek.push(formatDateString(currentDay));
+
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek);
+      currentWeek = [];
+    }
+
+    currentDay.setDate(currentDay.getDate() + 1);
+  }
+
+  // Fill remaining days of the last week with null
+  if (currentWeek.length > 0) {
+    while (currentWeek.length < 7) {
+      currentWeek.push(null);
+    }
+    weeks.push(currentWeek);
+  }
+
+  return weeks;
+}
+
+// Run validation calculations across the entire month
+export function runMonthlyValidations(
+  stores: Store[],
+  employees: Employee[],
+  shifts: Shift[],
+  year: number,
+  month: number
+): ScheduleAlert[] {
+  const weeks = getMonthlyWeeks(year, month);
+  const alerts: ScheduleAlert[] = [];
+  const processedWeeks = new Set<string>();
+
+  weeks.forEach(week => {
+    // Find the first non-null day of this week to use as a reference to run weekly validations
+    const firstNonNullDateStr = week.find(d => d !== null);
+    if (!firstNonNullDateStr) return;
+
+    // Standardize to the Monday of that week
+    const monday = getMonday(new Date(firstNonNullDateStr + 'T12:00:00'));
+    const mondayStr = formatDateString(monday);
+
+    if (processedWeeks.has(mondayStr)) return;
+    processedWeeks.add(mondayStr);
+
+    const weekAlerts = runAllValidations(stores, employees, shifts, monday);
+    alerts.push(...weekAlerts);
+  });
+
+  // De-duplicate alerts
+  const seenMessages = new Set<string>();
+  return alerts.filter(alert => {
+    const key = `${alert.type}_${alert.employeeId}_${alert.date}_${alert.message}`;
+    if (seenMessages.has(key)) return false;
+    seenMessages.add(key);
+    return true;
+  });
 }

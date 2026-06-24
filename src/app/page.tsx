@@ -17,7 +17,7 @@ import {
   subscribeToRealtime,
 } from '../lib/dataService';
 import { isDemoMode } from '../lib/supabaseClient';
-import { runAllValidations, getMonday, getActiveWeekDates } from '../lib/validation';
+import { runMonthlyValidations, getMonday, getMonthlyWeeks } from '../lib/validation';
 import { AlertsPanel } from '../components/AlertsPanel';
 import { SidebarTracker } from '../components/SidebarTracker';
 import { ScheduleMatrix } from '../components/ScheduleMatrix';
@@ -34,9 +34,9 @@ export default function DashboardPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
-    // Standardize default active week to June 29, 2026 (contains July 1st)
-    return getMonday(new Date('2026-06-29T12:00:00'));
+  const [currentMonthStart, setCurrentMonthStart] = useState<Date>(() => {
+    // Standardize default active month to July 1st, 2026
+    return new Date('2026-07-01T12:00:00');
   });
 
   const [activeStoreFilter, setActiveStoreFilter] = useState<string>('all');
@@ -117,7 +117,6 @@ export default function DashboardPage() {
   useEffect(() => {
     loadData();
 
-    // Subscribe to supabase database edits (only runs if keys are present)
     const subscription = subscribeToRealtime(() => {
       loadData();
     });
@@ -127,161 +126,130 @@ export default function DashboardPage() {
     };
   }, [loadData]);
 
-  // Recalculate validation alerts when shifts, employees or current date changes
+  // Derived Month Info
+  const activeYear = currentMonthStart.getFullYear();
+  const activeMonthIndex = currentMonthStart.getMonth();
+  const monthlyWeeks = getMonthlyWeeks(activeYear, activeMonthIndex);
+  const monthDates = monthlyWeeks.flat().filter((d): d is string => d !== null);
+
+  // Recalculate validation alerts when shifts, employees or month changes
   useEffect(() => {
     if (stores.length > 0) {
-      const activeAlerts = runAllValidations(stores, employees, shifts, currentWeekStart);
+      const activeAlerts = runMonthlyValidations(stores, employees, shifts, activeYear, activeMonthIndex);
       setAlerts(activeAlerts);
     }
-  }, [stores, employees, shifts, currentWeekStart]);
+  }, [stores, employees, shifts, activeYear, activeMonthIndex]);
 
-  // --- Action Handlers ---
-
-  const handlePrevWeek = () => {
-    setCurrentWeekStart(prev => {
-      const newDate = new Date(prev);
-      newDate.setDate(prev.getDate() - 7);
-      return newDate;
-    });
-  };
-
-  const handleNextWeek = () => {
-    setCurrentWeekStart(prev => {
-      const newDate = new Date(prev);
-      newDate.setDate(prev.getDate() + 7);
-      return newDate;
-    });
-  };
-
-  const handleResetData = async () => {
-    if (
-      confirm(
-        'Deseja redefinir os dados para o padrão de demonstração? Isso apagará todas as modificações atuais.'
-      )
-    ) {
-      setLoading(true);
-      await resetToMockData();
-      resetChanged();
-      await loadData();
-    }
-  };
-
-  // Open shift modal
-  const handleCellClick = (employeeId: string, date: string, shift?: Shift) => {
-    setSelectedEmployeeId(employeeId);
-    setSelectedDate(date);
-    setSelectedShift(shift);
-    setIsShiftModalOpen(true);
-  };
-
-  // Save shift handler
-  const handleSaveShift = async (shiftData: Omit<Shift, 'id'> & { id?: string }) => {
-    setLoading(true);
+  // --- Modal Form Actions ---
+  const handleSaveShift = async (shift: Omit<Shift, 'id'> & { id?: string }) => {
     try {
-      await saveShift(shiftData);
+      await saveShift(shift);
       markChanged();
       await loadData();
-      setIsShiftModalOpen(false);
     } catch (err) {
       alert('Erro ao salvar turno: ' + err);
-      setLoading(false);
     }
   };
 
-  // Delete shift handler
   const handleDeleteShift = async (id: string) => {
-    setLoading(true);
     try {
       await deleteShift(id);
       markChanged();
       await loadData();
-      setIsShiftModalOpen(false);
     } catch (err) {
       alert('Erro ao excluir turno: ' + err);
-      setLoading(false);
     }
   };
 
-  // Save employee handler
-  const handleSaveEmployee = async (employeeData: Omit<Employee, 'id'> & { id?: string }) => {
-    setLoading(true);
+  const handleSaveEmployee = async (employee: Omit<Employee, 'id'> & { id?: string }) => {
     try {
-      await saveEmployee(employeeData);
-      markChanged();
+      await saveEmployee(employee);
       await loadData();
     } catch (err) {
       alert('Erro ao salvar funcionário: ' + err);
-      setLoading(false);
     }
   };
 
-  // Delete employee handler
-  const handleDeleteEmployee = async (id: string): Promise<boolean> => {
-    if (!confirm('Deseja realmente excluir este funcionário? Os turnos associados também serão removidos.')) return false;
-    setLoading(true);
-    try {
-      await deleteEmployee(id);
-      markChanged();
-      await loadData();
-      return true;
-    } catch (err) {
-      alert('Erro ao excluir funcionário: ' + err);
-      setLoading(false);
-      return false;
+  const handleDeleteEmployee = async (id: string) => {
+    if (confirm('Deseja realmente excluir este funcionário e remover todos os seus turnos escalados?')) {
+      try {
+        await deleteEmployee(id);
+        markChanged();
+        await loadData();
+        return true;
+      } catch (err) {
+        alert('Erro ao excluir funcionário: ' + err);
+        return false;
+      }
     }
+    return false;
   };
 
-  // Save store handler
-  const handleSaveStore = async (storeData: Omit<Store, 'id'> & { id?: string }) => {
-    setLoading(true);
+  const handleSaveStore = async (store: Omit<Store, 'id'> & { id?: string }) => {
     try {
-      await saveStore(storeData);
-      markChanged();
+      await saveStore(store);
       await loadData();
     } catch (err) {
       alert('Erro ao salvar loja: ' + err);
-      setLoading(false);
     }
   };
 
-  // Delete store handler
   const handleDeleteStore = async (id: string) => {
-    setLoading(true);
-    try {
-      await deleteStore(id);
-      markChanged();
-      await loadData();
-    } catch (err) {
-      alert('Erro ao excluir loja: ' + err);
-      setLoading(false);
+    if (confirm('Atenção: Excluir esta loja apagará permanentemente todos os turnos e dados vinculados a ela! Deseja continuar?')) {
+      try {
+        await deleteStore(id);
+        markChanged();
+        await loadData();
+      } catch (err) {
+        alert('Erro ao excluir loja: ' + err);
+        setLoading(false);
+      }
     }
   };
 
-  // Generate AI Schedule handler
+  // Generate AI Schedule handler for calendar months
   const handleGenerateAISchedule = async (storeId: string, period: 'week' | 'month' = 'week') => {
     try {
-      const numWeeks = period === 'month' ? 4 : 1;
+      const targetYear = period === 'month'
+        ? (activeMonthIndex === 11 ? activeYear + 1 : activeYear)
+        : activeYear;
+      const targetMonth = period === 'month'
+        ? (activeMonthIndex === 11 ? 0 : activeMonthIndex + 1)
+        : activeMonthIndex;
+
+      // Find all weeks in the target calendar month
+      const targetWeeks = getMonthlyWeeks(targetYear, targetMonth);
       const allOptimizedShifts: Omit<Shift, 'id'>[] = [];
-      const allWeekDates: string[] = [];
 
-      for (let i = 0; i < numWeeks; i++) {
-        const targetWeekStart = new Date(currentWeekStart);
-        targetWeekStart.setDate(currentWeekStart.getDate() + i * 7);
-        
-        const weekShifts = generateAISchedule(storeId, employees, targetWeekStart);
-        allOptimizedShifts.push(...weekShifts);
-        
-        const weekDates = getActiveWeekDates(targetWeekStart);
-        allWeekDates.push(...weekDates);
-      }
+      const processedMondays = new Set<string>();
+      targetWeeks.forEach(week => {
+        const firstNonNull = week.find(d => d !== null);
+        if (!firstNonNull) return;
 
-      // Delete ALL existing shifts for employees of this store in all planned weeks
+        const monday = getMonday(new Date(firstNonNull + 'T12:00:00'));
+        const mondayStr = monday.toISOString().split('T')[0];
+
+        if (processedMondays.has(mondayStr)) return;
+        processedMondays.add(mondayStr);
+
+        const weekShifts = generateAISchedule(storeId, employees, monday);
+        
+        // Filter: only keep shifts that fall within the target calendar month
+        const targetMonthStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
+        const monthShifts = weekShifts.filter(s => s.date.startsWith(targetMonthStr));
+        allOptimizedShifts.push(...monthShifts);
+      });
+
+      // Target month formatted string for filtering
+      const targetMonthPrefix = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
+
+      // Delete ALL existing shifts for employees of this store in the target month
       const storeEmployeeIds = employees
         .filter(e => e.home_store_id === storeId)
         .map(e => e.id);
       
       const shiftsToDelete = shifts.filter(
-        s => allWeekDates.includes(s.date) && (
+        s => s.date.startsWith(targetMonthPrefix) && (
           s.store_id === storeId || storeEmployeeIds.includes(s.employee_id)
         )
       );
@@ -299,10 +267,41 @@ export default function DashboardPage() {
     }
   };
 
-  // Dates array for active week headers
-  const weekDates = getActiveWeekDates(currentWeekStart);
-  const startLabel = weekDates[0] ? weekDates[0].split('-').reverse().slice(0, 2).join('/') : '';
-  const endLabel = weekDates[6] ? weekDates[6].split('-').reverse().slice(0, 2).join('/') : '';
+  const handlePrevMonth = () => {
+    setCurrentMonthStart(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() - 1);
+      return newDate;
+    });
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonthStart(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + 1);
+      return newDate;
+    });
+  };
+
+  const handleResetData = async () => {
+    if (confirm('Deseja redefinir os dados para o padrão de demonstração? Isso apagará todas as modificações atuais.')) {
+      setLoading(true);
+      await resetToMockData();
+      resetChanged();
+      await loadData();
+    }
+  };
+
+  // Open shift modal
+  const handleCellClick = (employeeId: string, date: string, shift?: Shift) => {
+    setSelectedEmployeeId(employeeId);
+    setSelectedDate(date);
+    setSelectedShift(shift);
+    setIsShiftModalOpen(true);
+  };
+
+  // Format month name in Portuguese (e.g. "Julho de 2026")
+  const monthLabel = currentMonthStart.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
 
   return (
     <div className="app-container">
@@ -342,28 +341,28 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Week Selector */}
+        {/* Month Selector */}
         <div className="week-selector-container">
           <button
             type="button"
             className="btn-icon"
-            onClick={handlePrevWeek}
-            title="Semana Anterior"
+            onClick={handlePrevMonth}
+            title="Mês Anterior"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="m15 18-6-6 6-6" />
             </svg>
           </button>
-          <div className="week-display">
+          <div className="week-display" style={{ textTransform: 'capitalize' }}>
             <span>
-              Período: {startLabel} a {endLabel}
+              {monthLabel}
             </span>
           </div>
           <button
             type="button"
             className="btn-icon"
-            onClick={handleNextWeek}
-            title="Próxima Semana"
+            onClick={handleNextMonth}
+            title="Próximo Mês"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="m9 18 6-6-6-6" />
@@ -466,11 +465,11 @@ export default function DashboardPage() {
             stores={stores}
             employees={employees}
             shifts={shifts}
-            currentWeekStart={currentWeekStart}
+            currentMonthStart={currentMonthStart}
             activeStoreFilter={activeStoreFilter}
             onStoreFilterChange={setActiveStoreFilter}
             activeAlerts={alerts}
-            weekDates={weekDates}
+            monthDates={monthDates}
             showWarnings={userHasChanged}
           />
 
@@ -487,7 +486,7 @@ export default function DashboardPage() {
               stores={stores}
               employees={employees}
               shifts={shifts}
-              weekDates={weekDates}
+              monthlyWeeks={monthlyWeeks}
               activeStoreFilter={activeStoreFilter}
               activeAlerts={alerts}
               onCellClick={handleCellClick}
@@ -525,7 +524,7 @@ export default function DashboardPage() {
         stores={stores}
         employees={employees}
         shifts={shifts}
-        weekDates={weekDates}
+        monthlyWeeks={monthlyWeeks}
       />
 
       <StoreModal
@@ -541,7 +540,7 @@ export default function DashboardPage() {
         onClose={() => setIsAISchedulerOpen(false)}
         stores={stores}
         employees={employees}
-        currentWeekStart={currentWeekStart}
+        currentMonthStart={currentMonthStart}
         activeStoreFilter={activeStoreFilter}
         onGenerate={handleGenerateAISchedule}
       />

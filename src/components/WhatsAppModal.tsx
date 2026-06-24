@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Store, Employee, Shift } from '../lib/types';
-import { DAY_NAMES_PT, formatToDayMonth, getUniqueShifts } from '../lib/validation';
+import { formatToDayMonth, getUniqueShifts } from '../lib/validation';
 
 interface WhatsAppModalProps {
   isOpen: boolean;
@@ -8,7 +8,7 @@ interface WhatsAppModalProps {
   stores: Store[];
   employees: Employee[];
   shifts: Shift[];
-  weekDates: string[];
+  monthlyWeeks: (string | null)[][];
 }
 
 export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
@@ -17,36 +17,54 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   stores,
   employees,
   shifts,
-  weekDates,
+  monthlyWeeks,
 }) => {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+  const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
   const [exportText, setExportText] = useState<string>('');
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
 
-  // Set default store when modal opens
+  // Set default store and week when modal opens
   useEffect(() => {
     if (isOpen && stores.length > 0 && !selectedStoreId) {
       setSelectedStoreId(stores[0].id);
     }
+    if (isOpen) {
+      setSelectedWeekIdx(0);
+    }
   }, [isOpen, stores, selectedStoreId]);
+
+  const getWeekOptionLabel = (week: (string | null)[], idx: number) => {
+    const dates = week.filter((d): d is string => d !== null);
+    if (dates.length === 0) return `Semana ${idx + 1}`;
+    const start = formatToDayMonth(dates[0]);
+    const end = formatToDayMonth(dates[dates.length - 1]);
+    return `Semana ${idx + 1} (${start} a ${end})`;
+  };
 
   // Generate the formatted WhatsApp copy-paste text
   useEffect(() => {
     const store = stores.find(s => s.id === selectedStoreId);
-    if (!store || weekDates.length < 7) return;
+    const week = monthlyWeeks[selectedWeekIdx];
+    if (!store || !week) return;
 
-    const startDayFormatted = formatToDayMonth(weekDates[0]);
-    const endDayFormatted = formatToDayMonth(weekDates[6]);
+    const dates = week.filter((d): d is string => d !== null);
+    if (dates.length === 0) return;
+
+    const startDayFormatted = formatToDayMonth(dates[0]);
+    const endDayFormatted = formatToDayMonth(dates[dates.length - 1]);
     const franchiseName = (typeof window !== 'undefined' ? localStorage.getItem('escala_varejo_franchise_name') : null) || 'Varejo';
     let text = `🗓️ ESCALA ${franchiseName.toUpperCase()} - ${store.name.toUpperCase()}\n`;
     text += `Período: ${startDayFormatted} a ${endDayFormatted}\n\n`;
 
     const homeEmployees = employees.filter(emp => emp.active && emp.home_store_id === selectedStoreId);
-
     const uniqueShifts = getUniqueShifts(shifts);
+    const DAY_NAMES_DOM_SAB = ['Domingo', 'Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado'];
 
-    weekDates.forEach((date, idx) => {
-      text += `${DAY_NAMES_PT[idx]} (${formatToDayMonth(date)}):\n`;
+    week.forEach((date, idx) => {
+      if (!date) return; // Skip padding days outside the month
+
+      text += `${DAY_NAMES_DOM_SAB[idx]} (${formatToDayMonth(date)}):\n`;
 
       // Active shifts scheduled at this store on this day
       const storeShifts = uniqueShifts.filter(
@@ -69,7 +87,6 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
       // Calculate folgas
       const folgas: string[] = [];
-
       homeEmployees.forEach(emp => {
         const empShiftsOnDay = uniqueShifts.filter(s => s.employee_id === emp.id && s.date === date);
 
@@ -94,7 +111,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
     });
 
     setExportText(text);
-  }, [selectedStoreId, stores, employees, shifts, weekDates]);
+  }, [selectedStoreId, selectedWeekIdx, stores, employees, shifts, monthlyWeeks]);
 
   if (!isOpen) return null;
 
@@ -129,8 +146,24 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="export-week">Selecione a Semana</label>
+            <select
+              id="export-week"
+              value={selectedWeekIdx}
+              onChange={e => setSelectedWeekIdx(parseInt(e.target.value) || 0)}
+              required
+            >
+              {monthlyWeeks.map((week, idx) => (
+                <option key={idx} value={idx}>
+                  {getWeekOptionLabel(week, idx)}
+                </option>
+              ))}
+            </select>
             <span className="input-tip">
-              A exportação gerará a escala correspondente a esta loja, listando os horários do dia e folgas dos funcionários fixos.
+              Escolha qual semana da escala mensal você deseja exportar para o grupo da loja.
             </span>
           </div>
 
@@ -141,12 +174,13 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
               value={exportText}
               readOnly
               rows={12}
+              style={{ width: '100%', fontFamily: 'monospace', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', resize: 'vertical' }}
             />
           </div>
 
           <div className="modal-footer">
             {copySuccess && (
-              <span className="copy-success-message">Copiado para a área de transferência! 👍</span>
+              <span className="copy-success-message" style={{ color: 'var(--color-success)', marginRight: 'auto', fontSize: '0.85rem' }}>Copiado para a área de transferência! 👍</span>
             )}
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Fechar

@@ -14,6 +14,7 @@ export interface Employee {
   home_store_id: string;
   weekly_hours_contract: number;
   active: boolean;
+  default_shift?: string; // 'morning' | 'intermediate' | 'evening'
 }
 
 export interface Shift {

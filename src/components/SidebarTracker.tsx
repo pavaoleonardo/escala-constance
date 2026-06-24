@@ -1,16 +1,16 @@
 import React from 'react';
 import { Store, Employee, Shift, ScheduleAlert } from '../lib/types';
-import { DAY_NAMES_PT, formatToDayMonth, formatDateString, calculateOvertime, getShiftDuration } from '../lib/validation';
+import { formatDateString, getShiftDuration, getUniqueShifts } from '../lib/validation';
 
 interface SidebarTrackerProps {
   stores: Store[];
   employees: Employee[];
   shifts: Shift[];
-  currentWeekStart: Date;
+  currentMonthStart: Date;
   activeStoreFilter: string;
   onStoreFilterChange: (id: string) => void;
   activeAlerts: ScheduleAlert[];
-  weekDates: string[];
+  monthDates: string[]; // Flat dates of the active month
   showWarnings: boolean;
 }
 
@@ -18,17 +18,16 @@ export const SidebarTracker: React.FC<SidebarTrackerProps> = ({
   stores,
   employees,
   shifts,
-  currentWeekStart,
+  currentMonthStart,
   activeStoreFilter,
   onStoreFilterChange,
   activeAlerts,
-  weekDates,
+  monthDates,
   showWarnings,
 }) => {
-  // Get active month details
-  const activeMonthStr = currentWeekStart.toLocaleString('pt-BR', { month: 'long' });
-  const activeMonthIndex = currentWeekStart.getMonth();
-  const activeYear = currentWeekStart.getFullYear();
+  const activeMonthStr = currentMonthStart.toLocaleString('pt-BR', { month: 'long' });
+  const activeMonthIndex = currentMonthStart.getMonth();
+  const activeYear = currentMonthStart.getFullYear();
 
   // Calculate Sundays in this calendar month
   const sundays: string[] = [];
@@ -40,11 +39,30 @@ export const SidebarTracker: React.FC<SidebarTrackerProps> = ({
     tempDate.setDate(tempDate.getDate() + 1);
   }
 
-  // Overtime data
   const filteredEmployees = employees.filter(
     emp => emp.active && (activeStoreFilter === 'all' || emp.home_store_id === activeStoreFilter)
   );
-  const overtimeData = calculateOvertime(filteredEmployees, shifts, currentWeekStart);
+
+  const uniqueShifts = getUniqueShifts(shifts);
+
+  // Calculate total monthly hours worked by each employee in the active month
+  const monthlyHoursData = filteredEmployees.map(employee => {
+    let totalHours = 0;
+    uniqueShifts
+      .filter(s => s.employee_id === employee.id && s.store_id === employee.home_store_id && monthDates.includes(s.date))
+      .forEach(s => {
+        const isFolga = (s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time;
+        if (!isFolga) {
+          totalHours += getShiftDuration(s.start_time, s.end_time, s.break_duration_minutes);
+        }
+      });
+
+    return {
+      employeeId: employee.id,
+      employeeName: employee.name,
+      totalHours
+    };
+  });
 
   return (
     <aside className="workspace-sidebar">
@@ -74,23 +92,22 @@ export const SidebarTracker: React.FC<SidebarTrackerProps> = ({
         </div>
       </section>
 
-      {/* 2. Weekly Hours & Overtime Summary */}
+      {/* 2. Monthly Hours Summary */}
       <section className="sidebar-section card">
-        <h3>Horas Semanais</h3>
-        <p className="section-desc">Horas regulares e extras da semana ativa.</p>
+        <h3>Horas do Mês</h3>
+        <p className="section-desc">Total de horas trabalhadas no mês ativo.</p>
         <div className="overtime-list">
-          {overtimeData.map(info => (
+          {monthlyHoursData.map(info => (
             <div key={info.employeeId} className="overtime-row">
               <div className="overtime-name">{info.employeeName}</div>
               <div className="overtime-hours">
-                <span className="hours-regular">{info.regularHours.toFixed(0)}h</span>
-                {info.overtimeHours > 0 && (
-                  <span className="hours-extra">+{info.overtimeHours.toFixed(1)}h extra</span>
-                )}
+                <span className="hours-regular" style={{ fontWeight: '600', color: 'var(--color-gold-text)' }}>
+                  {info.totalHours.toFixed(0)}h
+                </span>
               </div>
             </div>
           ))}
-          {overtimeData.length === 0 && (
+          {monthlyHoursData.length === 0 && (
             <p className="section-desc" style={{ textAlign: 'center', padding: '0.5rem 0' }}>
               Nenhum funcionário ativo.
             </p>
@@ -98,7 +115,7 @@ export const SidebarTracker: React.FC<SidebarTrackerProps> = ({
         </div>
       </section>
 
-      {/* 3. Sunday Rotation — informational only, no alerts */}
+      {/* 3. Sunday Rotation */}
       <section className="sidebar-section card">
         <div className="section-header">
           <h3>Domingos</h3>

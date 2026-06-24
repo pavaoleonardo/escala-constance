@@ -7,7 +7,7 @@ interface AISchedulerModalProps {
   onClose: () => void;
   stores: Store[];
   employees: Employee[];
-  currentWeekStart: Date;
+  currentMonthStart: Date;
   activeStoreFilter: string;
   onGenerate: (storeId: string, period: 'week' | 'month') => Promise<void>;
 }
@@ -17,7 +17,7 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
   onClose,
   stores,
   employees,
-  currentWeekStart,
+  currentMonthStart,
   activeStoreFilter,
   onGenerate,
 }) => {
@@ -75,14 +75,17 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
   };
 
   const getWeekRangeLabel = () => {
-    const start = new Date(currentWeekStart);
-    const end = new Date(start);
-    end.setDate(start.getDate() + (planningPeriod === 'month' ? 27 : 6));
+    const start = new Date(currentMonthStart);
+    if (planningPeriod === 'month') {
+      start.setMonth(start.getMonth() + 1);
+    }
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
     
     const format = (d: Date) => {
       const dd = String(d.getDate()).padStart(2, '0');
       const mm = String(d.getMonth() + 1).padStart(2, '0');
-      return `${dd}/${mm}`;
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
     };
     return `${format(start)} a ${format(end)}`;
   };
@@ -110,7 +113,7 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
               </p>
 
               <div className="form-group info-read-only" style={{ marginBottom: '1rem' }}>
-                <label>{planningPeriod === 'month' ? 'Período de Planejamento (Mês)' : 'Semana de Planejamento'}</label>
+                <label>Período de Planejamento (Mês)</label>
                 <div className="read-only-text">{getWeekRangeLabel()}</div>
               </div>
 
@@ -122,8 +125,8 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
                   onChange={e => setPlanningPeriod(e.target.value as 'week' | 'month')}
                   required
                 >
-                  <option value="week">Esta Semana (7 dias)</option>
-                  <option value="month">Próximo Mês (28 dias / 4 semanas)</option>
+                  <option value="week">Este Mês (Mês Completo)</option>
+                  <option value="month">Próximo Mês (Mês Completo)</option>
                 </select>
               </div>
 

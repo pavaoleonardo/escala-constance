@@ -25,6 +25,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
   const [homeStoreId, setHomeStoreId] = useState<string>('');
   const [weeklyHours, setWeeklyHours] = useState<number>(44);
   const [active, setActive] = useState<boolean>(true);
+  const [defaultShift, setDefaultShift] = useState<string>('morning');
 
   // Set default store when stores list loads
   useEffect(() => {
@@ -47,6 +48,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     setHomeStoreId(emp.home_store_id);
     setWeeklyHours(emp.weekly_hours_contract);
     setActive(emp.active);
+    setDefaultShift(emp.default_shift || 'morning');
     setActiveTab('form');
   };
 
@@ -59,6 +61,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     }
     setWeeklyHours(44);
     setActive(true);
+    setDefaultShift('morning');
     setActiveTab('form');
   };
 
@@ -71,6 +74,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
       home_store_id: homeStoreId,
       weekly_hours_contract: weeklyHours,
       active,
+      default_shift: defaultShift,
     });
     setActiveTab('list');
   };
@@ -109,6 +113,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                   <tr>
                     <th>Nome</th>
                     <th>Cargo</th>
+                    <th>Turno Padrão</th>
                     <th>Loja Sede</th>
                     <th>Contrato Semanal</th>
                     <th>Status</th>
@@ -119,12 +124,24 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                   {employees.map(emp => {
                     const store = stores.find(s => s.id === emp.home_store_id);
                     const storeName = store ? store.name.replace('Constance ', '') : 'Indefinido';
+                    const shiftLabels: Record<string, string> = {
+                      morning: 'Manhã',
+                      intermediate: 'Intermediário',
+                      evening: 'Noite'
+                    };
+                    const shiftText = shiftLabels[emp.default_shift || 'morning'] || 'Manhã';
+
                     return (
                       <tr key={emp.id}>
                         <td>
                           <strong>{emp.name}</strong>
                         </td>
                         <td>{emp.role}</td>
+                        <td>
+                          <span className="badge badge-info" style={{ backgroundColor: 'rgba(175, 143, 86, 0.1)', color: 'var(--color-gold-text)', border: '1px solid rgba(175, 143, 86, 0.2)', fontSize: '0.75rem' }}>
+                            {shiftText}
+                          </span>
+                        </td>
                         <td>{storeName}</td>
                         <td>{emp.weekly_hours_contract}h</td>
                         <td>
@@ -210,6 +227,26 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                     max={44}
                     required
                   />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="emp-shift">Turno Padrão</label>
+                  <select
+                    id="emp-shift"
+                    value={defaultShift}
+                    onChange={e => setDefaultShift(e.target.value)}
+                    required
+                  >
+                    <option value="morning">Manhã (10:00 - 16:00)</option>
+                    <option value="intermediate">Intermediário (14:00 - 20:00)</option>
+                    <option value="evening">Noite (16:00 - 22:00)</option>
+                  </select>
+                  <span className="input-tip">O planejador IA escalará este funcionário neste turno por padrão.</span>
+                </div>
+                <div className="form-group" style={{ visibility: 'hidden' }}>
+                  <label>&nbsp;</label>
                 </div>
               </div>
 
