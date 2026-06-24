@@ -59,12 +59,12 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
     const homeEmployees = employees.filter(emp => emp.active && emp.home_store_id === selectedStoreId);
     const uniqueShifts = getUniqueShifts(shifts);
-    const DAY_NAMES_DOM_SAB = ['Domingo', 'Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado'];
+    const DAY_NAMES_SEG_DOM = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado', 'Domingo'];
 
     week.forEach((date, idx) => {
       if (!date) return; // Skip padding days outside the month
 
-      text += `${DAY_NAMES_DOM_SAB[idx]} (${formatToDayMonth(date)}):\n`;
+      text += `${DAY_NAMES_SEG_DOM[idx]} (${formatToDayMonth(date)}):\n`;
 
       // Active shifts scheduled at this store on this day
       const storeShifts = uniqueShifts.filter(

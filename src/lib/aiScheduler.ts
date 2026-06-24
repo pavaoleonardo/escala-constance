@@ -40,7 +40,8 @@ const SHIFTS = [
 export function generateAISchedule(
   storeId: string,
   employees: Employee[],
-  currentWeekStart: Date
+  currentWeekStart: Date,
+  existingShifts: Shift[] = []
 ): Omit<Shift, 'id'>[] {
   const weekDates = getActiveWeekDates(currentWeekStart);
 
@@ -80,10 +81,6 @@ export function generateAISchedule(
   const shiftPatterns = new Map<string, number>();        // emp.id → 0|1|2
   const worksSunday = new Map<string, boolean>();         // emp.id → boolean
 
-  // Counters for alternating off-days
-  let sundayWorkerCount = 0;
-  let sundayOffCounter = 0;
-
   storeEmployees.forEach((emp, empIndex) => {
     const inGroupA = empIndex < groupASize;
     const worksThisSunday = groupAWorksSunday ? inGroupA : !inGroupA;
@@ -96,17 +93,36 @@ export function generateAISchedule(
     else if (emp.default_shift === 'evening') pattern = 2;
     shiftPatterns.set(emp.id, pattern);
 
-    if (worksThisSunday) {
-      // Day-off is strictly Monday (0) or Tuesday (1), alternating
-      const dayOff = sundayWorkerCount % 2 === 0 ? 0 : 1;
-      restDayAssignments.set(emp.id, dayOff);
-      sundayWorkerCount++;
+    // Off-day is strictly Monday (0), Tuesday (1), or Wednesday (2)
+    let assignedRestDay = -1;
+
+    const monDateStr = weekDates[0];
+    const tueDateStr = weekDates[1];
+    // Check if the week contains days from June (transition week)
+    const isTransitionWeek = monDateStr.startsWith('2026-06') || tueDateStr.startsWith('2026-06');
+
+    if (isTransitionWeek) {
+      // Look at existing shifts in June (Monday June 29 / Tuesday June 30)
+      const monShift = existingShifts.find(s => s.employee_id === emp.id && s.date === monDateStr);
+      const tueShift = existingShifts.find(s => s.employee_id === emp.id && s.date === tueDateStr);
+
+      const monIsFolga = monShift ? ((monShift.start_time === '00:00' && monShift.end_time === '00:00') || !monShift.start_time) : false;
+      const tueIsFolga = tueShift ? ((tueShift.start_time === '00:00' && tueShift.end_time === '00:00') || !tueShift.start_time) : false;
+
+      if (monIsFolga) {
+        assignedRestDay = 0; // Preserve off-day on Monday June 29
+      } else if (tueIsFolga) {
+        assignedRestDay = 1; // Preserve off-day on Tuesday June 30
+      } else {
+        assignedRestDay = 2; // Both worked in June, assign rest to Wednesday July 1st
+      }
     } else {
-      // Day-off is Thu (3) or Fri (4), alternating
-      const dayOff = 3 + (sundayOffCounter % 2);
-      restDayAssignments.set(emp.id, dayOff);
-      sundayOffCounter++;
+      // Normal week: distribute strictly on Mon (0), Tue (1) and eventually Wed (2) depending on employee count
+      const numOptions = n >= 5 ? 3 : 2;
+      assignedRestDay = empIndex % numOptions;
     }
+
+    restDayAssignments.set(emp.id, assignedRestDay);
   });
 
   // Build the Sunday shift schedule for each worker

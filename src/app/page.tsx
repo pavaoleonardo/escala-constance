@@ -232,7 +232,7 @@ export default function DashboardPage() {
         if (processedMondays.has(mondayStr)) return;
         processedMondays.add(mondayStr);
 
-        const weekShifts = generateAISchedule(storeId, employees, monday);
+        const weekShifts = generateAISchedule(storeId, employees, monday, shifts);
         
         // Filter: only keep shifts that fall within the target calendar month
         const targetMonthStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;

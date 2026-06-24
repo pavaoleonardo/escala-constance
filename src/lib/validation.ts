@@ -230,22 +230,22 @@ export function runAllValidations(
   return alerts;
 }
 
-// Get all weeks of a given month (Sunday to Saturday)
+// Get all weeks of a given month (Monday to Sunday)
 // Each week is an array of 7 elements (either YYYY-MM-DD or null)
 export function getMonthlyWeeks(year: number, month: number): (string | null)[][] {
   const weeks: (string | null)[][] = [];
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
 
-  // Sunday (0) to Saturday (6)
-  // Find the day of the week for the 1st of the month
+  // Monday (0) to Sunday (6) in our aligned week
   const startDayOfWeek = firstDay.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  const startPadding = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
 
   const currentDay = new Date(firstDay);
   let currentWeek: (string | null)[] = [];
 
   // Fill initial days with null
-  for (let i = 0; i < startDayOfWeek; i++) {
+  for (let i = 0; i < startPadding; i++) {
     currentWeek.push(null);
   }
 
