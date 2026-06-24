@@ -158,25 +158,37 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                           key={shift.id}
                                           className="shift-card shift-card-folga"
                                           onClick={() => onCellClick(employee.id, date, shift)}
-                                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.4rem 0' }}
                                         >
-                                          <span className="shift-time" style={{ fontWeight: '600', color: 'var(--text-muted)' }}>Folga</span>
+                                          <span className="shift-time">Folga</span>
                                         </div>
                                       );
                                     }
+
+                                    const storeIdx = stores.findIndex(s => s.id === shift.store_id);
+                                    const storeShort = stores[storeIdx]
+                                      ? stores[storeIdx].name.replace('Constance ', '')
+                                      : 'Loja';
+
+                                    const duration = getShiftDuration(
+                                      shift.start_time,
+                                      shift.end_time,
+                                      shift.break_duration_minutes
+                                    );
 
                                     return (
                                       <div
                                         key={shift.id}
                                         className="shift-card shift-card-active"
                                         onClick={() => onCellClick(employee.id, date, shift)}
-                                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.4rem 0' }}
                                       >
-                                        <span className="shift-time" style={{ fontWeight: 'bold', fontSize: '1.25rem', color: 'var(--color-gold-text)' }}>
-                                          X
+                                        <span className="shift-time">
+                                          {shift.start_time} - {shift.end_time}
                                         </span>
-                                        <span className="shift-hours-info" style={{ fontSize: '0.7rem', opacity: 0.8, marginTop: '2px', color: 'var(--text-muted)' }}>
-                                          {shift.start_time}-{shift.end_time}
+                                        <span className="shift-hours-info">
+                                          ({duration.toFixed(1)}h | int: {shift.break_duration_minutes}m)
+                                        </span>
+                                        <span className={`shift-store store-tag-${storeIdx >= 0 ? storeIdx : '0'}`}>
+                                          {storeShort}
                                         </span>
                                       </div>
                                     );
