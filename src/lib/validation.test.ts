@@ -1,4 +1,4 @@
-import { runAllValidations } from './validation';
+import { runAllValidations, runMonthlyValidations } from './validation';
 import { Store, Employee, Shift } from './types';
 
 // Simple lightweight test runner
@@ -56,6 +56,39 @@ function runTests() {
   const alerts3 = runAllValidations(mockStores, mockEmployees, shifts3, currentWeekStart);
   const hasDailyLimitAlert = alerts3.some(a => a.type === 'clt' && a.message.includes('excede 10h diárias'));
   console.log(hasDailyLimitAlert ? "✅ Teste 3 (Limite 10h Diárias) PASSED" : "❌ Teste 3 (Limite 10h Diárias) FAILED");
+
+  // Test Case 4: Sunday worked but no Monday/Tuesday off
+  // Employee works on Sunday (2026-06-14), and also works on Monday (2026-06-08) and Tuesday (2026-06-09)
+  const shifts4: Shift[] = [
+    { id: 's4_1', employee_id: 'emp-1', store_id: 'st-1', date: '2026-06-08', start_time: '10:00', end_time: '16:00', break_duration_minutes: 15, allow_overtime: false },
+    { id: 's4_2', employee_id: 'emp-1', store_id: 'st-1', date: '2026-06-09', start_time: '10:00', end_time: '16:00', break_duration_minutes: 15, allow_overtime: false },
+    { id: 's4_3', employee_id: 'emp-1', store_id: 'st-1', date: '2026-06-14', start_time: '12:00', end_time: '20:00', break_duration_minutes: 60, allow_overtime: false }
+  ];
+  const alerts4 = runAllValidations(mockStores, mockEmployees, shifts4, currentWeekStart);
+  const hasSundayWorkOffAlert = alerts4.some(a => a.type === 'clt' && a.message.includes('precisa de folga na segunda ou terça-feira desta semana'));
+  console.log(hasSundayWorkOffAlert ? "✅ Teste 4 (Folga Seg/Ter após Domingo) PASSED" : "❌ Teste 4 (Folga Seg/Ter após Domingo) FAILED");
+
+  // Test Case 5: Consecutive Sundays off in month (June 2026 has Sundays on 7, 14, 21, 28)
+  const mockStoresMonthly: Store[] = [
+    {
+      id: 'st-1',
+      name: 'Loja Teste A',
+      operating_hours: {
+        weekday: { open: '10:00', close: '22:00' },
+        sunday: { open: '12:00', close: '20:00' }
+      }
+    }
+  ];
+  const mockEmployeesMonthly: Employee[] = [
+    { id: 'emp-1', name: 'Ana Silva', role: 'Gerente', home_store_id: 'st-1', weekly_hours_contract: 44, active: true }
+  ];
+  const shifts5: Shift[] = [
+    { id: 's5_1', employee_id: 'emp-1', store_id: 'st-1', date: '2026-06-07', start_time: '00:00', end_time: '00:00', break_duration_minutes: 0, allow_overtime: false },
+    { id: 's5_2', employee_id: 'emp-1', store_id: 'st-1', date: '2026-06-14', start_time: '00:00', end_time: '00:00', break_duration_minutes: 0, allow_overtime: false }
+  ];
+  const alerts5 = runMonthlyValidations(mockStoresMonthly, mockEmployeesMonthly, shifts5, 2026, 5);
+  const hasConsecutiveSundaysOffAlert = alerts5.some(a => a.type === 'sunday' && a.message.includes('folgou em domingos consecutivos'));
+  console.log(hasConsecutiveSundaysOffAlert ? "✅ Teste 5 (Domingos Consecutivos Off) PASSED" : "❌ Teste 5 (Domingos Consecutivos Off) FAILED");
 
   console.log("=== FIM DOS TESTES ===");
 }

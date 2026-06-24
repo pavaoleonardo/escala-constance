@@ -170,14 +170,6 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
             {/* ── Row 2: Day-of-week + day number ── */}
             <tr>
               {monthlyWeeks.map((week, wIdx) => {
-                // Determine which month is being displayed (from the first month-owned date)
-                const firstMonthDate = monthlyWeeks.flat().find(d => {
-                  if (!d) return false;
-                  const yr = parseInt(d.split('-')[0]);
-                  const mo = parseInt(d.split('-')[1]) - 1;
-                  // Find first date that is the reference month
-                  return true; // placeholder — we use activeYear/activeMonthIndex below
-                });
                 return week.map((dateStr, dIdx) => {
                   const dayNum = dateStr ? parseInt(dateStr.split('-')[2]) : '';
                   const isWeekend = dIdx >= 5;
@@ -212,6 +204,8 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                         fontWeight: isWeekend && !isPrevMonth ? 700 : 600,
                         backgroundColor: isPrevMonth
                           ? 'rgba(148,163,184,0.08)'
+                          : dIdx === 6
+                          ? '#f5eedf' // Solid light gold for Sunday header
                           : WEEK_HEADER_BG[wIdx % WEEK_HEADER_BG.length],
                         opacity: dateStr ? (isPrevMonth ? 0.6 : 1) : 0.35,
                         whiteSpace: 'nowrap',
@@ -386,7 +380,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                   <td
                                     key={`empty-${wIdx}-${dIdx}`}
                                     style={{
-                                      backgroundColor: '#f8fafc',
+                                      backgroundColor: dIdx === 6 ? 'rgba(175, 143, 86, 0.05)' : '#f8fafc', // Highlight empty Sunday cell
                                       opacity: 0.4,
                                       borderLeft: isFirstDayOfWeek ? '2px solid #e2e8f0' : undefined,
                                       padding: '0.5rem',
@@ -432,7 +426,11 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                   key={date}
                                   className="matrix-cell"
                                   style={{
-                                    backgroundColor: isPrevMonthDate ? 'rgba(148,163,184,0.06)' : weekBg,
+                                    backgroundColor: isPrevMonthDate
+                                      ? 'rgba(148,163,184,0.06)'
+                                      : dIdx === 6
+                                      ? 'rgba(175, 143, 86, 0.12)' // Highlight Sunday cell
+                                      : weekBg,
                                     borderLeft: isFirstDayOfWeek ? '2px solid #e2e8f0' : undefined,
                                     position: 'relative',
                                     padding: '0.4rem',
@@ -447,6 +445,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                     <div
                                       className="shift-card shift-card-empty"
                                       onClick={() => onCellClick(employee.id, date, store.id)}
+                                      style={dIdx === 6 ? { backgroundColor: 'rgba(175, 143, 86, 0.08)', borderColor: 'rgba(175, 143, 86, 0.3)' } : undefined}
                                     >
                                       <span className="empty-plus">+</span>
                                     </div>
@@ -462,6 +461,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                             key={shift.id}
                                             className="shift-card shift-card-folga"
                                             onClick={() => onCellClick(employee.id, date, store.id, shift)}
+                                            style={dIdx === 6 ? { backgroundColor: '#f5eedf', borderColor: 'rgba(175, 143, 86, 0.3)' } : undefined}
                                           >
                                             <span className="shift-time">Folga</span>
                                           </div>
@@ -483,6 +483,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                           key={shift.id}
                                           className="shift-card shift-card-active"
                                           onClick={() => onCellClick(employee.id, date, store.id, shift)}
+                                          style={dIdx === 6 ? { backgroundColor: '#fdfbf7', borderColor: 'rgba(175, 143, 86, 0.5)', borderLeftWidth: '4px' } : undefined}
                                         >
                                           <span className="shift-time">
                                             {shift.start_time} – {shift.end_time}

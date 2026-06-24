@@ -539,6 +539,8 @@ export default function DashboardPage() {
         employees={employees}
         shifts={shifts}
         monthlyWeeks={monthlyWeeks}
+        activeYear={activeYear}
+        activeMonthIndex={activeMonthIndex}
       />
 
       <StoreModal

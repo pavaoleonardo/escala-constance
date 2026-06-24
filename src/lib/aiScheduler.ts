@@ -1,5 +1,5 @@
 import { Employee, Shift } from './types';
-import { getActiveWeekDates } from './validation';
+import { getActiveWeekDates, formatDateString } from './validation';
 import { defaultStores } from './mockData';
 
 /**
@@ -113,7 +113,6 @@ export function generateAISchedule(
   const sundayYear    = sundayDate.getFullYear();
   const sundayMonth   = sundayDate.getMonth();
 
-  const numSundaysInMonth = countSundaysInMonth(sundayYear, sundayMonth);
   const thisSundayIdx     = sundayIndexInMonth(sundayDate);
 
   // ── Assignments ───────────────────────────────────────────────────────────
@@ -136,10 +135,26 @@ export function generateAISchedule(
     else { pattern = empIndex % 3; }
     shiftPattern.set(emp.id, pattern);
 
-    // ── Sunday: each employee rests exactly once per month ────────────────
-    // Employee i rests on Sunday index (i % numSundaysInMonth).
-    const empOffSundayIdx = empIndex % numSundaysInMonth;
-    worksSunday.set(emp.id, thisSundayIdx !== empOffSundayIdx);
+    // ── Sunday: employees can have 1 or 2 Sundays off per month ───────────
+    // If employee had Sunday off in the previous week, they must work this Sunday
+    const prevSunday = new Date(currentWeekStart);
+    prevSunday.setDate(prevSunday.getDate() - 1);
+    const prevSundayStr = formatDateString(prevSunday);
+    const prevSundayShift = existingShifts.find(
+      s => s.employee_id === emp.id && s.date === prevSundayStr
+    );
+    const hadSundayOffPrevWeek = prevSundayShift
+      ? (prevSundayShift.start_time === '00:00' && prevSundayShift.end_time === '00:00') || !prevSundayShift.start_time
+      : false;
+
+    let worksThisSunday = true;
+    if (hadSundayOffPrevWeek) {
+      worksThisSunday = true;
+    } else {
+      // Off Sunday index rotation pattern (thisSundayIdx + empIndex) % 3 === 0
+      worksThisSunday = (thisSundayIdx + empIndex) % 3 !== 0;
+    }
+    worksSunday.set(emp.id, worksThisSunday);
   });
 
   // ── Build shifts ──────────────────────────────────────────────────────────

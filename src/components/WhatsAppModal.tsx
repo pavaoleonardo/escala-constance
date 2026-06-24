@@ -9,6 +9,8 @@ interface WhatsAppModalProps {
   employees: Employee[];
   shifts: Shift[];
   monthlyWeeks: (string | null)[][];
+  activeYear: number;
+  activeMonthIndex: number;
 }
 
 export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
@@ -18,6 +20,8 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   employees,
   shifts,
   monthlyWeeks,
+  activeYear,
+  activeMonthIndex,
 }) => {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
@@ -35,7 +39,13 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   }, [isOpen, stores, selectedStoreId]);
 
   const getWeekOptionLabel = (week: (string | null)[], idx: number) => {
-    const dates = week.filter((d): d is string => d !== null);
+    const dates = week.filter((d): d is string => {
+      if (!d) return false;
+      const parts = d.split('-');
+      const y = parseInt(parts[0]);
+      const m = parseInt(parts[1]) - 1;
+      return y === activeYear && m === activeMonthIndex;
+    });
     if (dates.length === 0) return `Semana ${idx + 1}`;
     const start = formatToDayMonth(dates[0]);
     const end = formatToDayMonth(dates[dates.length - 1]);
@@ -48,11 +58,19 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
     const week = monthlyWeeks[selectedWeekIdx];
     if (!store || !week) return;
 
-    const dates = week.filter((d): d is string => d !== null);
-    if (dates.length === 0) return;
+    // Filter week dates to only include those in the active month
+    const activeMonthDates = week.filter((d): d is string => {
+      if (!d) return false;
+      const parts = d.split('-');
+      const y = parseInt(parts[0]);
+      const m = parseInt(parts[1]) - 1;
+      return y === activeYear && m === activeMonthIndex;
+    });
 
-    const startDayFormatted = formatToDayMonth(dates[0]);
-    const endDayFormatted = formatToDayMonth(dates[dates.length - 1]);
+    if (activeMonthDates.length === 0) return;
+
+    const startDayFormatted = formatToDayMonth(activeMonthDates[0]);
+    const endDayFormatted = formatToDayMonth(activeMonthDates[activeMonthDates.length - 1]);
     const franchiseName = (typeof window !== 'undefined' ? localStorage.getItem('escala_varejo_franchise_name') : null) || 'Varejo';
     let text = `🗓️ ESCALA ${franchiseName.toUpperCase()} - ${store.name.toUpperCase()}\n`;
     text += `Período: ${startDayFormatted} a ${endDayFormatted}\n\n`;
@@ -63,6 +81,12 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
     week.forEach((date, idx) => {
       if (!date) return; // Skip padding days outside the month
+
+      // Check if date belongs to active month
+      const parts = date.split('-');
+      const y = parseInt(parts[0]);
+      const m = parseInt(parts[1]) - 1;
+      if (y !== activeYear || m !== activeMonthIndex) return; // Skip days from other months
 
       text += `${DAY_NAMES_SEG_DOM[idx]} (${formatToDayMonth(date)}):\n`;
 
@@ -111,7 +135,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
     });
 
     setExportText(text);
-  }, [selectedStoreId, selectedWeekIdx, stores, employees, shifts, monthlyWeeks]);
+  }, [selectedStoreId, selectedWeekIdx, stores, employees, shifts, monthlyWeeks, activeYear, activeMonthIndex]);
 
   if (!isOpen) return null;
 

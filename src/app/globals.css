@@ -74,15 +74,17 @@ button, input, select, textarea {
 
 /* Scrollbar customization */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 12px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg-primary);
+  border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 3px;
+  border-radius: 6px;
+  border: 2px solid var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;

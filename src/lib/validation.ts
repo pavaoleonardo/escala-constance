@@ -221,6 +221,31 @@ export function runAllValidations(
         });
       }
     }
+
+    // E: If employee worked on Sunday, must have Monday or Tuesday off in the same week
+    const sundayDateStr = weekDates[6];
+    const mondayDateStr = weekDates[0];
+    const tuesdayDateStr = weekDates[1];
+
+    const sundayShift = empShiftsThisWeek.find(s => s.date === sundayDateStr);
+    const isSundayWorked = sundayShift && !((sundayShift.start_time === '00:00' && sundayShift.end_time === '00:00') || !sundayShift.start_time);
+
+    if (isSundayWorked) {
+      const mondayShift = empShiftsThisWeek.find(s => s.date === mondayDateStr);
+      const tuesdayShift = empShiftsThisWeek.find(s => s.date === tuesdayDateStr);
+
+      const isMondayOff = !mondayShift || (mondayShift.start_time === '00:00' && mondayShift.end_time === '00:00') || !mondayShift.start_time;
+      const isTuesdayOff = !tuesdayShift || (tuesdayShift.start_time === '00:00' && tuesdayShift.end_time === '00:00') || !tuesdayShift.start_time;
+
+      if (!isMondayOff && !isTuesdayOff) {
+        alerts.push({
+          type: 'clt',
+          message: `⚠️ <strong>${employee.name}</strong> trabalhou no domingo (${formatToDayMonth(sundayDateStr)}) e precisa de folga na segunda ou terça-feira desta semana.`,
+          employeeId: employee.id,
+          date: sundayDateStr
+        });
+      }
+    }
   });
 
   // NO coverage checks — employees can work without a supervisora
@@ -308,6 +333,36 @@ export function runMonthlyValidations(
 
     const weekAlerts = runAllValidations(stores, employees, shifts, monday);
     alerts.push(...weekAlerts);
+  });
+
+  // F: Check consecutive Sundays off for each active employee
+  const uniqueShifts = getUniqueShifts(shifts);
+  const sundays: string[] = [];
+  weeks.forEach(week => {
+    const sunday = week[6];
+    if (sunday) sundays.push(sunday);
+  });
+
+  employees.filter(emp => emp.active).forEach(employee => {
+    for (let i = 0; i < sundays.length - 1; i++) {
+      const sun1 = sundays[i];
+      const sun2 = sundays[i + 1];
+
+      const shift1 = uniqueShifts.find(s => s.employee_id === employee.id && s.date === sun1);
+      const shift2 = uniqueShifts.find(s => s.employee_id === employee.id && s.date === sun2);
+
+      const isSun1Off = !shift1 || (shift1.start_time === '00:00' && shift1.end_time === '00:00') || !shift1.start_time;
+      const isSun2Off = !shift2 || (shift2.start_time === '00:00' && shift2.end_time === '00:00') || !shift2.start_time;
+
+      if (isSun1Off && isSun2Off) {
+        alerts.push({
+          type: 'sunday',
+          message: `⚠️ <strong>${employee.name}</strong> folgou em domingos consecutivos (${formatToDayMonth(sun1)} e ${formatToDayMonth(sun2)}). É obrigatório trabalhar no domingo seguinte após uma folga de domingo.`,
+          employeeId: employee.id,
+          date: sun2
+        });
+      }
+    }
   });
 
   // De-duplicate alerts
