@@ -39,7 +39,8 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
       setPlanningStep(0);
       setSuccess(false);
     }
-  }, [isOpen, stores, activeStoreFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -65,7 +66,8 @@ export const AISchedulerModal: React.FC<AISchedulerModalProps> = ({
 
     try {
       await onGenerate(selectedStoreId, planningPeriod);
-      onClose(); // Automatically close the modal when generated successfully
+      setSuccess(true);
+      setIsPlanning(false);
     } catch (err) {
       alert('Erro ao gerar escala: ' + err);
       setIsPlanning(false);
