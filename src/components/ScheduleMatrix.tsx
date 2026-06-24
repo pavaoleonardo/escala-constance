@@ -9,7 +9,7 @@ interface ScheduleMatrixProps {
   monthlyWeeks: (string | null)[][];
   activeStoreFilter: string;
   activeAlerts: ScheduleAlert[];
-  onCellClick: (employeeId: string, date: string, shift?: Shift) => void;
+  onCellClick: (employeeId: string, date: string, storeId: string, shift?: Shift) => void;
   showWarnings: boolean;
 }
 
@@ -446,7 +446,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                   {dayShifts.length === 0 ? (
                                     <div
                                       className="shift-card shift-card-empty"
-                                      onClick={() => onCellClick(employee.id, date)}
+                                      onClick={() => onCellClick(employee.id, date, store.id)}
                                     >
                                       <span className="empty-plus">+</span>
                                     </div>
@@ -461,7 +461,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                           <div
                                             key={shift.id}
                                             className="shift-card shift-card-folga"
-                                            onClick={() => onCellClick(employee.id, date, shift)}
+                                            onClick={() => onCellClick(employee.id, date, store.id, shift)}
                                           >
                                             <span className="shift-time">Folga</span>
                                           </div>
@@ -482,7 +482,7 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                         <div
                                           key={shift.id}
                                           className="shift-card shift-card-active"
-                                          onClick={() => onCellClick(employee.id, date, shift)}
+                                          onClick={() => onCellClick(employee.id, date, store.id, shift)}
                                         >
                                           <span className="shift-time">
                                             {shift.start_time} – {shift.end_time}

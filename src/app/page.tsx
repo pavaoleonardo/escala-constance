@@ -94,6 +94,7 @@ export default function DashboardPage() {
   // --- Modal Selected Variables ---
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [selectedShift, setSelectedShift] = useState<Shift | undefined>(undefined);
 
   // --- Data Loading Functions ---
@@ -304,9 +305,10 @@ export default function DashboardPage() {
   };
 
   // Open shift modal
-  const handleCellClick = (employeeId: string, date: string, shift?: Shift) => {
+  const handleCellClick = (employeeId: string, date: string, storeId: string, shift?: Shift) => {
     setSelectedEmployeeId(employeeId);
     setSelectedDate(date);
+    setSelectedStoreId(storeId);
     setSelectedShift(shift);
     setIsShiftModalOpen(true);
   };
@@ -517,6 +519,7 @@ export default function DashboardPage() {
         employees={employees}
         selectedEmployeeId={selectedEmployeeId}
         selectedDate={selectedDate}
+        selectedStoreId={selectedStoreId}
         selectedShift={selectedShift}
       />
 

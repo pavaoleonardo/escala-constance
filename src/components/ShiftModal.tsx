@@ -11,6 +11,7 @@ interface ShiftModalProps {
   employees: Employee[];
   selectedEmployeeId: string;
   selectedDate: string;
+  selectedStoreId: string;
   selectedShift?: Shift;
 }
 
@@ -23,13 +24,14 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
   employees,
   selectedEmployeeId,
   selectedDate,
+  selectedStoreId,
   selectedShift,
 }) => {
-  const [shiftType, setShiftType] = useState<string>('abertura');
+  const [shiftType, setShiftType] = useState<string>('manha');
   const [storeId, setStoreId] = useState<string>('');
   const [startTime, setStartTime] = useState<string>('10:00');
-  const [endTime, setEndTime] = useState<string>('18:00');
-  const [breakDuration, setBreakDuration] = useState<number>(60);
+  const [endTime, setEndTime] = useState<string>('16:00');
+  const [breakDuration, setBreakDuration] = useState<number>(15);
   const [allowOvertime, setAllowOvertime] = useState<boolean>(false);
   const [warningMsg, setWarningMsg] = useState<string>('');
 
@@ -51,12 +53,12 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
 
       if (isFolgaVal) {
         setShiftType('folga');
-      } else if (start === '10:00' && end === '18:00' && bMin === 60) {
-        setShiftType('abertura');
-      } else if (start === '12:00' && end === '20:00' && bMin === 60) {
+      } else if (start === '10:00' && end === '16:00' && bMin === 15) {
+        setShiftType('manha');
+      } else if (start === '14:00' && end === '20:00' && bMin === 15) {
         setShiftType('intermediario');
-      } else if (start === '14:00' && end === '22:00' && bMin === 60) {
-        setShiftType('fechamento');
+      } else if (start === '16:00' && end === '22:00' && bMin === 15) {
+        setShiftType('noite');
       } else {
         setShiftType('personalizado');
         setStartTime(start);
@@ -65,18 +67,32 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
       }
     } else {
       // New Shift defaults
-      setShiftType('abertura');
       setAllowOvertime(false);
-      setStartTime('10:00');
-      setEndTime('18:00');
-      setBreakDuration(60);
-      if (employee) {
-        setStoreId(employee.home_store_id);
-      } else if (stores.length > 0) {
-        setStoreId(stores[0].id);
+      
+      // Determine default based on employee's preference
+      let defType = 'manha';
+      let defStart = '10:00';
+      let defEnd = '16:00';
+      let defBreak = 15;
+
+      const pref = employee?.default_shift || 'morning';
+      if (pref === 'intermediate') {
+        defType = 'intermediario';
+        defStart = '14:00';
+        defEnd = '20:00';
+      } else if (pref === 'evening') {
+        defType = 'noite';
+        defStart = '16:00';
+        defEnd = '22:00';
       }
+
+      setShiftType(defType);
+      setStartTime(defStart);
+      setEndTime(defEnd);
+      setBreakDuration(defBreak);
+      setStoreId(selectedStoreId || employee?.home_store_id || (stores.length > 0 ? stores[0].id : ''));
     }
-  }, [isOpen, selectedShift, selectedEmployeeId, employee, stores]);
+  }, [isOpen, selectedShift, selectedEmployeeId, employee, stores, selectedStoreId]);
 
   // Compute live warnings in modal
   useEffect(() => {
@@ -86,15 +102,15 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
     }
 
     let start = '10:00';
-    let end = '18:00';
-    let bMin = 60;
+    let end = '16:00';
+    let bMin = 15;
 
-    if (shiftType === 'abertura') {
-      start = '10:00'; end = '18:00'; bMin = 60;
+    if (shiftType === 'manha') {
+      start = '10:00'; end = '16:00'; bMin = 15;
     } else if (shiftType === 'intermediario') {
-      start = '12:00'; end = '20:00'; bMin = 60;
-    } else if (shiftType === 'fechamento') {
-      start = '14:00'; end = '22:00'; bMin = 60;
+      start = '14:00'; end = '20:00'; bMin = 15;
+    } else if (shiftType === 'noite') {
+      start = '16:00'; end = '22:00'; bMin = 15;
     } else {
       start = startTime;
       end = endTime;
@@ -139,12 +155,12 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
     let end = '00:00';
     let bMin = 0;
 
-    if (shiftType === 'abertura') {
-      start = '10:00'; end = '18:00'; bMin = 60;
+    if (shiftType === 'manha') {
+      start = '10:00'; end = '16:00'; bMin = 15;
     } else if (shiftType === 'intermediario') {
-      start = '12:00'; end = '20:00'; bMin = 60;
-    } else if (shiftType === 'fechamento') {
-      start = '14:00'; end = '22:00'; bMin = 60;
+      start = '14:00'; end = '20:00'; bMin = 15;
+    } else if (shiftType === 'noite') {
+      start = '16:00'; end = '22:00'; bMin = 15;
     } else if (shiftType === 'personalizado') {
       start = startTime;
       end = endTime;
@@ -154,7 +170,7 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
     onSave({
       id: selectedShift?.id,
       employee_id: selectedEmployeeId,
-      store_id: employee?.home_store_id || storeId,
+      store_id: storeId,
       date: selectedDate,
       start_time: start,
       end_time: end,
@@ -195,9 +211,9 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
                 required
               >
                 <option value="folga">Folga (DSR / Sem expediente)</option>
-                <option value="abertura">Abertura (10:00 - 18:00)</option>
-                <option value="intermediario">Intermediário (12:00 - 20:00)</option>
-                <option value="fechamento">Fechamento (14:00 - 22:00)</option>
+                <option value="manha">Manhã (10:00 - 16:00)</option>
+                <option value="intermediario">Intermediário (14:00 - 20:00)</option>
+                <option value="noite">Noite (16:00 - 22:00)</option>
                 <option value="personalizado">Horário Personalizado</option>
               </select>
             </div>

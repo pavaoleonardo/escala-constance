@@ -28,7 +28,7 @@ function saveLocal(key: string, data: any) {
 }
 
 const DATA_VERSION_KEY = 'varejo_data_version';
-const CURRENT_DATA_VERSION = 5; // Removed July mock shifts so it starts empty by default
+const CURRENT_DATA_VERSION = 6; // Reseeding employees with default_shift properties
 
 function checkAndMigrateData() {
   if (typeof window === 'undefined') return;

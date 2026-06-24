@@ -29,28 +29,28 @@ export const defaultStores: Store[] = [
 
 export const defaultEmployees: Employee[] = [
   // Store 1: Polo Shopping Indaiatuba
-  { id: 'emp-1', name: 'Ana Paula Rodrigues', role: 'Vendedora Supervisora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true },
-  { id: 'emp-9', name: 'Juliana Souza Neves', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true },
-  { id: 'emp-2', name: 'Bruno Alves Souza', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true },
-  { id: 'emp-13', name: 'Marcos Oliveira', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true },
-  { id: 'emp-3', name: 'Elena Santos Dias', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true },
-  { id: 'emp-4', name: 'Gabriela Melo Reis', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true },
+  { id: 'emp-1', name: 'Ana Paula Rodrigues', role: 'Vendedora Supervisora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
+  { id: 'emp-9', name: 'Juliana Souza Neves', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
+  { id: 'emp-2', name: 'Bruno Alves Souza', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'intermediate' },
+  { id: 'emp-13', name: 'Marcos Oliveira', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
+  { id: 'emp-3', name: 'Elena Santos Dias', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
+  { id: 'emp-4', name: 'Gabriela Melo Reis', role: 'Vendedora', home_store_id: 'store-1', weekly_hours_contract: 44, active: true, default_shift: 'intermediate' },
   
   // Store 2: Shopping Parque das Bandeiras
-  { id: 'emp-14', name: 'Patricia Lima', role: 'Vendedora Supervisora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true },
-  { id: 'emp-5', name: 'Fernanda Costa Lima', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true },
-  { id: 'emp-6', name: 'Camila Rocha Pinto', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true },
-  { id: 'emp-10', name: 'Diego Ramos Cardoso', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true },
-  { id: 'emp-7', name: 'Helena Lima Ferraz', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true },
-  { id: 'emp-8', name: 'Isabela Azevedo', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true },
+  { id: 'emp-14', name: 'Patricia Lima', role: 'Vendedora Supervisora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
+  { id: 'emp-5', name: 'Fernanda Costa Lima', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
+  { id: 'emp-6', name: 'Camila Rocha Pinto', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
+  { id: 'emp-10', name: 'Diego Ramos Cardoso', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true, default_shift: 'intermediate' },
+  { id: 'emp-7', name: 'Helena Lima Ferraz', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
+  { id: 'emp-8', name: 'Isabela Azevedo', role: 'Vendedora', home_store_id: 'store-2', weekly_hours_contract: 44, active: true, default_shift: 'intermediate' },
 
   // Store 3: Shopping Iguatemi Campinas
-  { id: 'emp-15', name: 'Raquel Mendes Ferreira', role: 'Vendedora Supervisora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true },
-  { id: 'emp-16', name: 'Tatiana Borges Costa', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true },
-  { id: 'emp-17', name: 'Vanessa Ribeiro Alves', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true },
-  { id: 'emp-18', name: 'Amanda Carvalho Souza', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true },
-  { id: 'emp-19', name: 'Bianca Farias Lima', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true },
-  { id: 'emp-20', name: 'Carolina Duarte Pereira', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true }
+  { id: 'emp-15', name: 'Raquel Mendes Ferreira', role: 'Vendedora Supervisora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
+  { id: 'emp-16', name: 'Tatiana Borges Costa', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
+  { id: 'emp-17', name: 'Vanessa Ribeiro Alves', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true, default_shift: 'intermediate' },
+  { id: 'emp-18', name: 'Amanda Carvalho Souza', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true, default_shift: 'morning' },
+  { id: 'emp-19', name: 'Bianca Farias Lima', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true, default_shift: 'evening' },
+  { id: 'emp-20', name: 'Carolina Duarte Pereira', role: 'Vendedora', home_store_id: 'store-3', weekly_hours_contract: 44, active: true, default_shift: 'intermediate' }
 ];
 
 export const defaultShifts: Shift[] = [
