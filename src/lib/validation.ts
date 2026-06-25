@@ -362,6 +362,18 @@ export function runMonthlyValidations(
           date: sun2
         });
       }
+
+      const isSun1Worked = shift1 && !((shift1.start_time === '00:00' && shift1.end_time === '00:00') || !shift1.start_time);
+      const isSun2Worked = shift2 && !((shift2.start_time === '00:00' && shift2.end_time === '00:00') || !shift2.start_time);
+
+      if (isSun1Worked && isSun2Worked) {
+        alerts.push({
+          type: 'sunday',
+          message: `⚠️ <strong>${employee.name}</strong> trabalhou em domingos consecutivos (${formatToDayMonth(sun1)} e ${formatToDayMonth(sun2)}). É obrigatório folgar no domingo seguinte após trabalhar um domingo.`,
+          employeeId: employee.id,
+          date: sun2
+        });
+      }
     }
   });
 

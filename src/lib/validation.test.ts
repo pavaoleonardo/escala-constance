@@ -90,6 +90,15 @@ function runTests() {
   const hasConsecutiveSundaysOffAlert = alerts5.some(a => a.type === 'sunday' && a.message.includes('folgou em domingos consecutivos'));
   console.log(hasConsecutiveSundaysOffAlert ? "✅ Teste 5 (Domingos Consecutivos Off) PASSED" : "❌ Teste 5 (Domingos Consecutivos Off) FAILED");
 
+  // Test Case 6: Consecutive Sundays worked in month (June 2026 has Sundays on 7, 14)
+  const shifts6: Shift[] = [
+    { id: 's6_1', employee_id: 'emp-1', store_id: 'st-1', date: '2026-06-07', start_time: '12:00', end_time: '20:00', break_duration_minutes: 60, allow_overtime: false },
+    { id: 's6_2', employee_id: 'emp-1', store_id: 'st-1', date: '2026-06-14', start_time: '12:00', end_time: '20:00', break_duration_minutes: 60, allow_overtime: false }
+  ];
+  const alerts6 = runMonthlyValidations(mockStoresMonthly, mockEmployeesMonthly, shifts6, 2026, 5);
+  const hasConsecutiveSundaysWorkedAlert = alerts6.some(a => a.type === 'sunday' && a.message.includes('trabalhou em domingos consecutivos'));
+  console.log(hasConsecutiveSundaysWorkedAlert ? "✅ Teste 6 (Domingos Consecutivos Trabalhados) PASSED" : "❌ Teste 6 (Domingos Consecutivos Trabalhados) FAILED");
+
   console.log("=== FIM DOS TESTES ===");
 }
 

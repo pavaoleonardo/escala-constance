@@ -236,7 +236,12 @@ export default function DashboardPage() {
         if (processedMondays.has(mondayStr)) return;
         processedMondays.add(mondayStr);
 
-        const weekShifts = generateAISchedule(storeId, employees, monday, shifts);
+        const accumulatedShifts = [
+          ...shifts,
+          ...allOptimizedShifts.map((s, idx) => ({ ...s, id: `temp-${idx}` }))
+        ];
+
+        const weekShifts = generateAISchedule(storeId, employees, monday, accumulatedShifts);
         
         // Keep ALL 7 days of the first transition week (includes June 29/30 for July)
         // Only for subsequent weeks, filter to the target month
