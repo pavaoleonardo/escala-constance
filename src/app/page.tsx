@@ -236,8 +236,20 @@ export default function DashboardPage() {
         if (processedMondays.has(mondayStr)) return;
         processedMondays.add(mondayStr);
 
+        // Filter out old shifts of target store employees for dates in target weeks,
+        // so that generating multiple times does not let stale shifts override newly generated ones.
+        const storeEmployeeIds = employees
+          .filter(e => e.home_store_id === storeId)
+          .map(e => e.id);
+        const allGridDates = targetWeeks.flat().filter((d): d is string => d !== null);
+        const nonDiscardedShifts = shifts.filter(s => {
+          const isStoreShift = s.store_id === storeId || storeEmployeeIds.includes(s.employee_id);
+          const isInGrid = allGridDates.includes(s.date);
+          return !(isStoreShift && isInGrid);
+        });
+
         const accumulatedShifts = [
-          ...shifts,
+          ...nonDiscardedShifts,
           ...allOptimizedShifts.map((s, idx) => ({ ...s, id: `temp-${idx}` }))
         ];
 
