@@ -11,6 +11,7 @@ interface ScheduleMatrixProps {
   activeAlerts: ScheduleAlert[];
   onCellClick: (employeeId: string, date: string, storeId: string, shift?: Shift) => void;
   showWarnings: boolean;
+  onDragAndDropShift: (sourceEmployeeId: string, sourceDate: string, targetEmployeeId: string, targetDate: string) => void;
 }
 
 const DAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -55,11 +56,42 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
   activeAlerts,
   onCellClick,
   showWarnings,
+  onDragAndDropShift,
 }) => {
   const uniqueShifts = getUniqueShifts(shifts);
   // All dates in the grid (including prev-month padding days like Jun 29/30)
   const allGridDates = monthlyWeeks.flat().filter((d): d is string => d !== null);
   const allMonthDates = allGridDates; // kept for compatibility
+
+  const [dragOverCell, setDragOverCell] = React.useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, employeeId: string, date: string) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ employeeId, date }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, employeeId: string, date: string) => {
+    e.preventDefault();
+    setDragOverCell(`${employeeId}_${date}`);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverCell(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetEmployeeId: string, targetDate: string) => {
+    e.preventDefault();
+    setDragOverCell(null);
+    try {
+      const dataStr = e.dataTransfer.getData('text/plain');
+      if (!dataStr) return;
+      const { employeeId: sourceEmployeeId, date: sourceDate } = JSON.parse(dataStr);
+      if (sourceEmployeeId === targetEmployeeId && sourceDate === targetDate) return;
+      onDragAndDropShift(sourceEmployeeId, sourceDate, targetEmployeeId, targetDate);
+    } catch (err) {
+      console.error("Error handling drop:", err);
+    }
+  };
 
   // Stores to render
   const storesToShow: Store[] =
@@ -423,10 +455,15 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                               );
                               const hasCellAlert = showWarnings && cellAlerts.length > 0;
 
+                              const isHovered = dragOverCell === `${employee.id}_${date}`;
+
                               return (
                                 <td
                                   key={date}
                                   className="matrix-cell"
+                                  onDragOver={(e) => handleDragOver(e, employee.id, date)}
+                                  onDragLeave={handleDragLeave}
+                                  onDrop={(e) => handleDrop(e, employee.id, date)}
                                   style={{
                                     backgroundColor: isPrevMonthDate
                                       ? (dIdx === 6 ? '#ffeef0' : 'rgba(148,163,184,0.06)')
@@ -442,12 +479,17 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                     minWidth: 110,
                                     verticalAlign: 'middle',
                                     opacity: isPrevMonthDate ? 0.65 : 1,
+                                    outline: isHovered ? '2px dashed var(--color-gold, #af8f56)' : undefined,
+                                    outlineOffset: isHovered ? '-2px' : undefined,
+                                    zIndex: isHovered ? 100 : undefined,
                                   }}
                                 >
                                   {dayShifts.length === 0 ? (
                                     <div
                                       className="shift-card shift-card-empty"
                                       onClick={() => onCellClick(employee.id, date, store.id)}
+                                      draggable={true}
+                                      onDragStart={(e) => handleDragStart(e, employee.id, date)}
                                       style={dIdx === 6 ? { backgroundColor: '#ffe3e3', borderColor: '#ffa8a8', borderStyle: 'dashed' } : undefined}
                                     >
                                       <span className="empty-plus" style={dIdx === 6 ? { color: '#e03131' } : undefined}>+</span>
@@ -464,6 +506,8 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                             key={shift.id}
                                             className="shift-card shift-card-folga"
                                             onClick={() => onCellClick(employee.id, date, store.id, shift)}
+                                            draggable={true}
+                                            onDragStart={(e) => handleDragStart(e, employee.id, date)}
                                             style={dIdx === 6 ? { backgroundColor: '#ffd8d8', borderColor: '#ffa8a8' } : undefined}
                                           >
                                             <span className="shift-time" style={dIdx === 6 ? { color: '#c92a2a', fontWeight: 700 } : undefined}>Folga</span>
@@ -486,6 +530,8 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                           key={shift.id}
                                           className="shift-card shift-card-active"
                                           onClick={() => onCellClick(employee.id, date, store.id, shift)}
+                                          draggable={true}
+                                          onDragStart={(e) => handleDragStart(e, employee.id, date)}
                                           style={dIdx === 6 ? { backgroundColor: '#ffffff', borderColor: '#ffa8a8', borderLeft: '4px solid #fa5252' } : undefined}
                                         >
                                           <span className="shift-time" style={dIdx === 6 ? { color: '#e03131' } : undefined}>

@@ -17,7 +17,7 @@ import {
   subscribeToRealtime,
 } from '../lib/dataService';
 import { isDemoMode } from '../lib/supabaseClient';
-import { runMonthlyValidations, getMonday, getMonthlyWeeks } from '../lib/validation';
+import { runMonthlyValidations, getMonday, getMonthlyWeeks, getUniqueShifts } from '../lib/validation';
 import { AlertsPanel } from '../components/AlertsPanel';
 import { SidebarTracker } from '../components/SidebarTracker';
 import { ScheduleMatrix } from '../components/ScheduleMatrix';
@@ -296,6 +296,139 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDragAndDropShift = async (
+    sourceEmployeeId: string,
+    sourceDate: string,
+    targetEmployeeId: string,
+    targetDate: string
+  ) => {
+    // Same-week restriction check
+    const week = monthlyWeeks.find(w => w.includes(sourceDate) && w.includes(targetDate));
+    if (!week) {
+      alert("Movimento não permitido: As trocas de turno são restritas à mesma semana!");
+      return;
+    }
+
+    try {
+      const uniqueShifts = getUniqueShifts(shifts);
+      const sourceShift = uniqueShifts.find(
+        s => s.employee_id === sourceEmployeeId && s.date === sourceDate
+      );
+      const targetShift = uniqueShifts.find(
+        s => s.employee_id === targetEmployeeId && s.date === targetDate
+      );
+
+      if (!sourceShift && !targetShift) return;
+
+      const shiftsToInsert: Omit<Shift, 'id'>[] = [];
+      const shiftIdsToDelete: string[] = [];
+      const isActive = (s?: Shift) => s && !((s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time);
+
+      if (sourceEmployeeId === targetEmployeeId) {
+        if (sourceShift) shiftIdsToDelete.push(sourceShift.id);
+        if (targetShift) shiftIdsToDelete.push(targetShift.id);
+
+        if (isActive(sourceShift)) {
+          shiftsToInsert.push({
+            employee_id: sourceEmployeeId,
+            store_id: sourceShift!.store_id,
+            date: targetDate,
+            start_time: sourceShift!.start_time,
+            end_time: sourceShift!.end_time,
+            break_duration_minutes: sourceShift!.break_duration_minutes,
+            allow_overtime: sourceShift!.allow_overtime
+          });
+        } else {
+          shiftsToInsert.push({
+            employee_id: sourceEmployeeId,
+            store_id: sourceShift ? sourceShift.store_id : (targetShift ? targetShift.store_id : ''),
+            date: targetDate,
+            start_time: '00:00',
+            end_time: '00:00',
+            break_duration_minutes: 0,
+            allow_overtime: false
+          });
+        }
+
+        if (isActive(targetShift)) {
+          shiftsToInsert.push({
+            employee_id: sourceEmployeeId,
+            store_id: targetShift!.store_id,
+            date: sourceDate,
+            start_time: targetShift!.start_time,
+            end_time: targetShift!.end_time,
+            break_duration_minutes: targetShift!.break_duration_minutes,
+            allow_overtime: targetShift!.allow_overtime
+          });
+        } else {
+          shiftsToInsert.push({
+            employee_id: sourceEmployeeId,
+            store_id: targetShift ? targetShift.store_id : (sourceShift ? sourceShift.store_id : ''),
+            date: sourceDate,
+            start_time: '00:00',
+            end_time: '00:00',
+            break_duration_minutes: 0,
+            allow_overtime: false
+          });
+        }
+      } else {
+        if (sourceShift) shiftIdsToDelete.push(sourceShift.id);
+        if (targetShift) shiftIdsToDelete.push(targetShift.id);
+
+        if (isActive(sourceShift)) {
+          shiftsToInsert.push({
+            employee_id: targetEmployeeId,
+            store_id: sourceShift!.store_id,
+            date: targetDate,
+            start_time: sourceShift!.start_time,
+            end_time: sourceShift!.end_time,
+            break_duration_minutes: sourceShift!.break_duration_minutes,
+            allow_overtime: sourceShift!.allow_overtime
+          });
+        } else {
+          shiftsToInsert.push({
+            employee_id: targetEmployeeId,
+            store_id: sourceShift ? sourceShift.store_id : (targetShift ? targetShift.store_id : ''),
+            date: targetDate,
+            start_time: '00:00',
+            end_time: '00:00',
+            break_duration_minutes: 0,
+            allow_overtime: false
+          });
+        }
+
+        if (isActive(targetShift)) {
+          shiftsToInsert.push({
+            employee_id: sourceEmployeeId,
+            store_id: targetShift!.store_id,
+            date: sourceDate,
+            start_time: targetShift!.start_time,
+            end_time: targetShift!.end_time,
+            break_duration_minutes: targetShift!.break_duration_minutes,
+            allow_overtime: targetShift!.allow_overtime
+          });
+        } else {
+          shiftsToInsert.push({
+            employee_id: sourceEmployeeId,
+            store_id: targetShift ? targetShift.store_id : (sourceShift ? sourceShift.store_id : ''),
+            date: sourceDate,
+            start_time: '00:00',
+            end_time: '00:00',
+            break_duration_minutes: 0,
+            allow_overtime: false
+          });
+        }
+      }
+
+      await updateShiftsBatch(shiftIdsToDelete, shiftsToInsert);
+      markChanged();
+      await loadData();
+    } catch (err) {
+      console.error("Erro ao arrastar e soltar turno:", err);
+      alert("Erro ao salvar a movimentação: " + err);
+    }
+  };
+
   const handlePrevMonth = () => {
     setCurrentMonthStart(prev => {
       const newDate = new Date(prev);
@@ -521,6 +654,7 @@ export default function DashboardPage() {
               activeAlerts={alerts}
               onCellClick={handleCellClick}
               showWarnings={userHasChanged}
+              onDragAndDropShift={handleDragAndDropShift}
             />
           </main>
         </div>
