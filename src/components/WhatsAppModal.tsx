@@ -24,17 +24,17 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   activeMonthIndex,
 }) => {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-  const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
   const [exportText, setExportText] = useState<string>('');
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
 
-  // Set default store and week when modal opens
+  // Set default store and period when modal opens
   useEffect(() => {
     if (isOpen && stores.length > 0 && !selectedStoreId) {
       setSelectedStoreId(stores[0].id);
     }
     if (isOpen) {
-      setSelectedWeekIdx(0);
+      setSelectedPeriod('all');
     }
   }, [isOpen, stores, selectedStoreId]);
 
@@ -55,40 +55,73 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   // Generate the formatted WhatsApp copy-paste text
   useEffect(() => {
     const store = stores.find(s => s.id === selectedStoreId);
-    const week = monthlyWeeks[selectedWeekIdx];
-    if (!store || !week) return;
+    if (!store) return;
 
-    // Filter week dates to only include those in the active month
-    const activeMonthDates = week.filter((d): d is string => {
-      if (!d) return false;
-      const parts = d.split('-');
-      const y = parseInt(parts[0]);
-      const m = parseInt(parts[1]) - 1;
-      return y === activeYear && m === activeMonthIndex;
-    });
-
-    if (activeMonthDates.length === 0) return;
-
-    const startDayFormatted = formatToDayMonth(activeMonthDates[0]);
-    const endDayFormatted = formatToDayMonth(activeMonthDates[activeMonthDates.length - 1]);
     const franchiseName = (typeof window !== 'undefined' ? localStorage.getItem('escala_varejo_franchise_name') : null) || 'Varejo';
     let text = `🗓️ ESCALA ${franchiseName.toUpperCase()} - ${store.name.toUpperCase()}\n`;
-    text += `Período: ${startDayFormatted} a ${endDayFormatted}\n\n`;
 
     const homeEmployees = employees.filter(emp => emp.active && emp.home_store_id === selectedStoreId);
     const uniqueShifts = getUniqueShifts(shifts);
     const DAY_NAMES_SEG_DOM = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado', 'Domingo'];
 
-    week.forEach((date, idx) => {
-      if (!date) return; // Skip padding days outside the month
+    // Gather all target dates to format based on selection
+    interface DayToFormat {
+      date: string;
+      weekdayIdx: number;
+    }
+    let daysToFormat: DayToFormat[] = [];
 
-      // Check if date belongs to active month
-      const parts = date.split('-');
-      const y = parseInt(parts[0]);
-      const m = parseInt(parts[1]) - 1;
-      if (y !== activeYear || m !== activeMonthIndex) return; // Skip days from other months
+    if (selectedPeriod === 'all') {
+      // Collect all dates from all weeks that belong to this month
+      const seenDates = new Set<string>();
+      monthlyWeeks.forEach(week => {
+        week.forEach((date, idx) => {
+          if (!date) return;
+          const parts = date.split('-');
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]) - 1;
+          if (y === activeYear && m === activeMonthIndex && !seenDates.has(date)) {
+            seenDates.add(date);
+            
+            // Calculate weekday index from date
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const dayOfWeekVal = d.getDay();
+            const weekdayIdx = dayOfWeekVal === 0 ? 6 : dayOfWeekVal - 1;
+            
+            daysToFormat.push({ date, weekdayIdx });
+          }
+        });
+      });
+      // Sort days chronologically
+      daysToFormat.sort((a, b) => a.date.localeCompare(b.date));
+    } else {
+      // Specific week selection
+      const weekIdx = parseInt(selectedPeriod) || 0;
+      const week = monthlyWeeks[weekIdx];
+      if (week) {
+        week.forEach((date, idx) => {
+          if (!date) return;
+          const parts = date.split('-');
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]) - 1;
+          if (y === activeYear && m === activeMonthIndex) {
+            daysToFormat.push({ date, weekdayIdx: idx });
+          }
+        });
+      }
+    }
 
-      text += `${DAY_NAMES_SEG_DOM[idx]} (${formatToDayMonth(date)}):\n`;
+    if (daysToFormat.length === 0) {
+      setExportText('');
+      return;
+    }
+
+    const startDayFormatted = formatToDayMonth(daysToFormat[0].date);
+    const endDayFormatted = formatToDayMonth(daysToFormat[daysToFormat.length - 1].date);
+    text += `Período: ${startDayFormatted} a ${endDayFormatted}\n\n`;
+
+    daysToFormat.forEach(({ date, weekdayIdx }) => {
+      text += `${DAY_NAMES_SEG_DOM[weekdayIdx]} (${formatToDayMonth(date)}):\n`;
 
       // Active shifts scheduled at this store on this day
       const storeShifts = uniqueShifts.filter(
@@ -135,7 +168,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
     });
 
     setExportText(text);
-  }, [selectedStoreId, selectedWeekIdx, stores, employees, shifts, monthlyWeeks, activeYear, activeMonthIndex]);
+  }, [selectedStoreId, selectedPeriod, stores, employees, shifts, monthlyWeeks, activeYear, activeMonthIndex]);
 
   if (!isOpen) return null;
 
@@ -173,21 +206,22 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
           </div>
 
           <div className="form-group">
-            <label htmlFor="export-week">Selecione a Semana</label>
+            <label htmlFor="export-period">Selecione o Período</label>
             <select
-              id="export-week"
-              value={selectedWeekIdx}
-              onChange={e => setSelectedWeekIdx(parseInt(e.target.value) || 0)}
+              id="export-period"
+              value={selectedPeriod}
+              onChange={e => setSelectedPeriod(e.target.value)}
               required
             >
+              <option value="all">Mês Inteiro</option>
               {monthlyWeeks.map((week, idx) => (
-                <option key={idx} value={idx}>
+                <option key={idx} value={String(idx)}>
                   {getWeekOptionLabel(week, idx)}
                 </option>
               ))}
             </select>
             <span className="input-tip">
-              Escolha qual semana da escala mensal você deseja exportar para o grupo da loja.
+              Escolha se deseja exportar a escala do mês inteiro ou de uma semana específica.
             </span>
           </div>
 
