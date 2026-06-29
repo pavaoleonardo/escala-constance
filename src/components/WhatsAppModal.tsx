@@ -102,7 +102,9 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
     const { blob, filename } = result;
     const file = new File([blob], filename, { type: 'application/pdf' });
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
           files: [file],
