@@ -122,8 +122,11 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
+      // Open WhatsApp Web in a new tab
+      window.open('https://web.whatsapp.com/', '_blank');
+
       alert(
-        "PDF baixado! Seu navegador não suporta compartilhamento direto de arquivos. Você pode anexar o arquivo baixado diretamente no grupo do WhatsApp."
+        "PDF baixado com sucesso!\n\nAbrimos o WhatsApp Web em uma nova aba. Para enviar no grupo da loja, basta anexar ou arrastar o arquivo de escala baixado diretamente na conversa."
       );
     }
   };
