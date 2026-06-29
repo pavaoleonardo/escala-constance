@@ -46,8 +46,20 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   const generatePDFBlob = async (): Promise<{ blob: Blob; filename: string } | null> => {
     try {
       const html2pdf = await loadHtml2Pdf();
+      
+      const wrapper = document.getElementById('pdf-export-wrapper');
+      if (wrapper) {
+        wrapper.style.display = 'block';
+      }
+      
+      // Let display update
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const element = document.getElementById('pdf-export-container');
-      if (!element) return null;
+      if (!element) {
+        if (wrapper) wrapper.style.display = 'none';
+        return null;
+      }
 
       const store = stores.find(s => s.id === selectedStoreId);
       const storeName = store ? store.name.replace('Constance ', '') : 'Loja';
@@ -61,14 +73,24 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
         filename,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false, width: 1000 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
       const pdf = html2pdf().set(opt).from(element);
       const blob = await pdf.outputPdf('blob');
+      
+      if (wrapper) {
+        wrapper.style.display = 'none';
+      }
+      
       return { blob, filename };
     } catch (err) {
       console.error('Error generating PDF:', err);
+      const wrapper = document.getElementById('pdf-export-wrapper');
+      if (wrapper) {
+        wrapper.style.display = 'none';
+      }
       alert('Erro ao gerar o PDF.');
       return null;
     }
@@ -412,8 +434,8 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
         </div>
       </div>
 
-      {/* Print-optimized monthly calendar (always in DOM, but visually hidden using zero-height wrapper) */}
-      <div style={{ height: 0, overflow: 'hidden', position: 'relative' }}>
+      {/* Print-optimized monthly calendar (hidden in absolute flow to not affect centering) */}
+      <div id="pdf-export-wrapper" style={{ display: 'none', position: 'absolute' }}>
         <div
           id="pdf-export-container"
           style={{
@@ -457,7 +479,14 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
             const weekEmployees = employees.filter(emp => emp.active && emp.home_store_id === selectedStoreId);
 
             return (
-              <div key={wIdx} style={{ marginBottom: '25px', pageBreakInside: 'avoid' }}>
+              <div 
+                key={wIdx} 
+                style={{ 
+                  marginBottom: '25px', 
+                  pageBreakAfter: wIdx < monthlyWeeks.length - 1 ? 'always' : 'auto',
+                  pageBreakInside: 'avoid'
+                }}
+              >
                 <h3 style={{ fontSize: '13px', margin: '0 0 8px 0', color: '#80612c', backgroundColor: 'rgba(175, 143, 86, 0.08)', padding: '6px 10px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Semana {wIdx + 1} {fDay && lDay && `(${fDay} a ${lDay})`}
                 </h3>
