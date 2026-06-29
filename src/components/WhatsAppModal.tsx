@@ -579,15 +579,15 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
         </div>
       </div>
 
-      {/* Print-optimized monthly calendar (always rendered off-screen to the right to not affect centering or viewport scroll) */}
+      {/* Print-optimized monthly calendar (permanently rendered at zero-height to allow correct layout reflow without squishing) */}
       <div 
         id="pdf-export-wrapper" 
         style={{ 
-          position: 'fixed', 
+          position: 'absolute', 
           top: 0, 
-          left: '100vw', 
+          left: 0, 
           width: '1000px', 
-          height: '100vh', 
+          height: 0, 
           overflow: 'hidden', 
           pointerEvents: 'none', 
           zIndex: -9999 
