@@ -28,6 +28,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   const [exportText, setExportText] = useState<string>('');
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [pdfGenerating, setPdfGenerating] = useState<boolean>(false);
+  const [previewTab, setPreviewTab] = useState<'text' | 'pdf'>('text');
 
   const loadHtml2Pdf = () => {
     return new Promise<any>((resolve, reject) => {
@@ -354,16 +355,176 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
             </span>
           </div>
 
-          <div className="form-group">
-            <label>Visualização do Texto</label>
-            <textarea
-              className="whatsapp-preview-area"
-              value={exportText}
-              readOnly
-              rows={12}
-              style={{ width: '100%', fontFamily: 'monospace', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', resize: 'vertical' }}
-            />
+          <div className="employee-tabs" style={{ marginBottom: '1rem', display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              className={`tab-button ${previewTab === 'text' ? 'active' : ''}`}
+              onClick={() => setPreviewTab('text')}
+              style={{ flex: 1, padding: '0.4rem 0' }}
+            >
+              Texto WhatsApp
+            </button>
+            <button
+              type="button"
+              className={`tab-button ${previewTab === 'pdf' ? 'active' : ''}`}
+              onClick={() => setPreviewTab('pdf')}
+              style={{ flex: 1, padding: '0.4rem 0' }}
+            >
+              Visualizar PDF
+            </button>
           </div>
+
+          {previewTab === 'text' ? (
+            <div className="form-group">
+              <label>Visualização do Texto</label>
+              <textarea
+                className="whatsapp-preview-area"
+                value={exportText}
+                readOnly
+                rows={12}
+                style={{ width: '100%', fontFamily: 'monospace', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', resize: 'vertical' }}
+              />
+            </div>
+          ) : (
+            <div className="form-group">
+              <label>Pré-visualização do PDF</label>
+              <div
+                style={{
+                  width: '100%',
+                  maxHeight: '320px',
+                  overflowY: 'auto',
+                  overflowX: 'auto',
+                  backgroundColor: 'var(--bg-secondary, #f8fafc)',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <div style={{ minWidth: '960px', backgroundColor: '#ffffff', color: '#0f172a', fontFamily: 'system-ui, sans-serif', padding: '15px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
+                  {/* Print Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #af8f56', paddingBottom: '12px', marginBottom: '15px' }}>
+                    <div>
+                      <h4 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0, color: '#0f172a' }}>
+                        🗓️ Escala {stores.find(s => s.id === selectedStoreId)?.name || 'Loja'}
+                      </h4>
+                      <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#64748b' }}>
+                        Período: {new Date(activeYear, activeMonthIndex, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '10px', color: '#af8f56', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Gestão e Conformidade CLT
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Render Weeks inside preview */}
+                  {monthlyWeeks.map((week, wIdx) => {
+                    const datesInMonth = week.filter((d): d is string => d !== null && isDateInMonth(d, activeYear, activeMonthIndex));
+                    if (datesInMonth.length === 0) return null;
+
+                    const firstDate = datesInMonth[0] || week.find(d => d !== null);
+                    const lastDate = datesInMonth[datesInMonth.length - 1] || [...week].reverse().find(d => d !== null);
+                    const fDay = firstDate ? parseInt(firstDate.split('-')[2]) : '';
+                    const lDay = lastDate ? parseInt(lastDate.split('-')[2]) : '';
+
+                    const weekEmployees = employees.filter(emp => emp.active && emp.home_store_id === selectedStoreId);
+
+                    return (
+                      <div key={wIdx} style={{ marginBottom: '20px' }}>
+                        <h5 style={{ fontSize: '11px', margin: '0 0 6px 0', color: '#80612c', backgroundColor: 'rgba(175, 143, 86, 0.06)', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Semana {wIdx + 1} {fDay && lDay && `(${fDay} a ${lDay})`}
+                        </h5>
+
+                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '10px' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f8fafc' }}>
+                              <th style={{ width: '150px', padding: '5px 6px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Funcionário / Cargo</th>
+                              {week.map((date, dIdx) => {
+                                const dayLabel = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dIdx];
+                                let dateLabel = '';
+                                if (date) {
+                                  const parts = date.split('-');
+                                  dateLabel = `${parts[2]}/${parts[1]}`;
+                                }
+                                const isSunday = dIdx === 6;
+                                return (
+                                  <th key={dIdx} style={{ padding: '5px 6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
+                                    {dayLabel} {dateLabel}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {weekEmployees.map(emp => {
+                              return (
+                                <tr key={emp.id}>
+                                  <td style={{ padding: '5px 6px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>
+                                    <div>{emp.name}</div>
+                                    <div style={{ fontSize: '8px', fontWeight: 'normal', color: '#64748b', marginTop: '1px' }}>{emp.role}</div>
+                                  </td>
+                                  {week.map((date, dIdx) => {
+                                    const isSunday = dIdx === 6;
+                                    if (!date) {
+                                      return <td key={dIdx} style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', opacity: 0.5 }} />;
+                                    }
+
+                                    const dayShifts = getUniqueShifts(shifts).filter(
+                                      s => s.employee_id === emp.id && s.date === date
+                                    );
+
+                                    if (dayShifts.length === 0) {
+                                      return (
+                                        <td key={dIdx} style={{ padding: '5px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
+                                          Folga
+                                        </td>
+                                      );
+                                    }
+
+                                    const shift = dayShifts[0];
+                                    const isFolga = (shift.start_time === '00:00' && shift.end_time === '00:00') || !shift.start_time;
+                                    const isFerias = shift.start_time === 'FERIAS';
+
+                                    if (isFerias) {
+                                      return (
+                                        <td key={dIdx} style={{ padding: '5px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: '#fef3c7', color: '#80612c', fontWeight: 'bold' }}>
+                                          Férias
+                                        </td>
+                                      );
+                                    }
+
+                                    if (isFolga) {
+                                      return (
+                                        <td key={dIdx} style={{ padding: '5px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
+                                          Folga
+                                        </td>
+                                      );
+                                    }
+
+                                    const storeShort = stores.find(s => s.id === shift.store_id)?.name.replace('Constance ', '') || 'Loja';
+                                    const isOtherStore = shift.store_id !== selectedStoreId;
+
+                                    return (
+                                      <td key={dIdx} style={{ padding: '3px 4px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isOtherStore ? '#f1f5f9' : (isSunday ? '#ffffff' : undefined), color: isOtherStore ? '#475569' : undefined }}>
+                                        <div style={{ fontWeight: 'bold' }}>{shift.start_time} – {shift.end_time}</div>
+                                        {isOtherStore && <div style={{ fontSize: '8px', color: '#64748b', marginTop: '1px' }}>{storeShort}</div>}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* PDF Exporter Section */}
           <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
