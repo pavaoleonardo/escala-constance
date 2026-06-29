@@ -100,7 +100,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
       const filename = `Escala_${storeName.replace(/\s+/g, '_')}_${monthLabel.replace(/\s+/g, '_')}.pdf`;
 
       const opt = {
-        margin: [0.3, 0.3, 0.3, 0.3],
+        margin: [0.2, 0.3, 0.2, 0.3],
         filename,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false, width: 1000 },
@@ -642,14 +642,11 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
           }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #af8f56', paddingBottom: '12px', marginBottom: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid #af8f56', paddingBottom: '6px', marginBottom: '10px' }}>
             <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: '#0f172a' }}>
-                🗓️ Escala {stores.find(s => s.id === selectedStoreId)?.name || 'Loja'}
+              <h1 style={{ fontSize: '15px', fontWeight: 'bold', margin: 0, color: '#0f172a' }}>
+                🗓️ Escala {stores.find(s => s.id === selectedStoreId)?.name || 'Loja'} — {new Date(activeYear, activeMonthIndex, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
               </h1>
-              <p style={{ fontSize: '12px', margin: '4px 0 0 0', color: '#64748b' }}>
-                Período: {new Date(activeYear, activeMonthIndex, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
-              </p>
             </div>
           </div>
 
@@ -671,18 +668,19 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
               <div 
                 key={wIdx} 
                 style={{ 
-                  marginBottom: '15px', 
+                  marginBottom: '10px', 
+                  pageBreakAfter: (wIdx % 2 === 1 && wIdx < monthlyWeeksSunday.length - 1) ? 'always' : 'auto',
                   pageBreakInside: 'avoid'
                 }}
               >
-                <h3 style={{ fontSize: '11px', margin: '0 0 4px 0', color: '#80612c', backgroundColor: 'rgba(175, 143, 86, 0.08)', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <h3 style={{ fontSize: '10px', margin: '0 0 3px 0', color: '#80612c', backgroundColor: 'rgba(175, 143, 86, 0.08)', padding: '3px 6px', borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Semana {wIdx + 1} {fDay && lDay && `(${fDay} a ${lDay})`}
                 </h3>
 
-                <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '9px', wordBreak: 'break-word' }}>
+                <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '8.5px', wordBreak: 'break-word' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f8fafc' }}>
-                      <th style={{ width: '155px', padding: '4px 6px', border: '1px solid #cbd5e1', textAlign: 'left', wordWrap: 'break-word', whiteSpace: 'normal' }}>Funcionário / Cargo</th>
+                      <th style={{ width: '155px', padding: '3px 4px', border: '1px solid #cbd5e1', textAlign: 'left', wordWrap: 'break-word', whiteSpace: 'normal' }}>Funcionário / Cargo</th>
                       {week.map((date, dIdx) => {
                         const dayLabel = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dIdx];
                         let dateLabel = '';
@@ -692,7 +690,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                         }
                         const isSunday = dIdx === 0;
                         return (
-                          <th key={dIdx} style={{ width: '115px', padding: '4px 6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
+                          <th key={dIdx} style={{ width: '115px', padding: '3px 4px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
                             {dayLabel} {dateLabel}
                           </th>
                         );
@@ -703,9 +701,9 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                     {weekEmployees.map(emp => {
                       return (
                         <tr key={emp.id}>
-                          <td style={{ padding: '4px 6px', border: '1px solid #cbd5e1', fontWeight: 'bold', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                          <td style={{ padding: '3px 4px', border: '1px solid #cbd5e1', fontWeight: 'bold', wordBreak: 'break-word', whiteSpace: 'normal' }}>
                             <div>{emp.name}</div>
-                            <div style={{ fontSize: '7.5px', fontWeight: 'normal', color: '#64748b', marginTop: '1px' }}>{emp.role}</div>
+                            <div style={{ fontSize: '7px', fontWeight: 'normal', color: '#64748b', marginTop: '1px' }}>{emp.role}</div>
                           </td>
                           {week.map((date, dIdx) => {
                             const isSunday = dIdx === 0;
@@ -719,7 +717,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
                             if (dayShifts.length === 0) {
                               return (
-                                <td key={dIdx} style={{ padding: '4px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
+                                <td key={dIdx} style={{ padding: '3px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
                                   Folga
                                 </td>
                               );
@@ -731,7 +729,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
                             if (isFerias) {
                               return (
-                                <td key={dIdx} style={{ padding: '4px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: '#fef3c7', color: '#80612c', fontWeight: 'bold' }}>
+                                <td key={dIdx} style={{ padding: '3px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: '#fef3c7', color: '#80612c', fontWeight: 'bold' }}>
                                   Férias
                                 </td>
                               );
@@ -739,7 +737,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
                             if (isFolga) {
                               return (
-                                <td key={dIdx} style={{ padding: '4px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
+                                <td key={dIdx} style={{ padding: '3px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
                                   Folga
                                 </td>
                               );
@@ -749,9 +747,9 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                             const isOtherStore = shift.store_id !== selectedStoreId;
 
                             return (
-                              <td key={dIdx} style={{ padding: '3px 4px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isOtherStore ? '#f1f5f9' : (isSunday ? '#ffffff' : undefined), color: isOtherStore ? '#475569' : undefined }}>
+                              <td key={dIdx} style={{ padding: '2px 3px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isOtherStore ? '#f1f5f9' : (isSunday ? '#ffffff' : undefined), color: isOtherStore ? '#475569' : undefined }}>
                                 <div style={{ fontWeight: 'bold' }}>{shift.start_time} – {shift.end_time}</div>
-                                {isOtherStore && <div style={{ fontSize: '7.5px', color: '#64748b', marginTop: '1px' }}>{storeShort}</div>}
+                                {isOtherStore && <div style={{ fontSize: '7px', color: '#64748b', marginTop: '1px' }}>{storeShort}</div>}
                               </td>
                             );
                           })}
