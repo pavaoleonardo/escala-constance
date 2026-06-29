@@ -445,7 +445,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
           <div
             id="pdf-export-container"
             style={{
-              width: '1080px',
+              width: '1020px',
               backgroundColor: '#ffffff',
               color: '#0f172a',
               fontFamily: 'system-ui, sans-serif',
@@ -476,11 +476,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
             {/* Stacked Weeks */}
             {monthlyWeeks.map((week, wIdx) => {
               // Check if week has any dates in target month
-              const weekYear = monthlyWeeks[0][0] ? parseInt(monthlyWeeks[0][0].split('-')[0]) : new Date().getFullYear();
-              const weekMonth = monthlyWeeks[0].find(d => d !== null)?.split('-')[1] || '01';
-              const targetYear = parseInt(weekYear.toString());
-              const targetMonthIdx = parseInt(weekMonth) - 1;
-              const datesInMonth = week.filter((d): d is string => d !== null && isDateInMonth(d, targetYear, targetMonthIdx));
+              const datesInMonth = week.filter((d): d is string => d !== null && isDateInMonth(d, activeYear, activeMonthIndex));
 
               if (datesInMonth.length === 0) return null;
 
