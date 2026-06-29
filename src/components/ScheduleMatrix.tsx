@@ -499,6 +499,26 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({
                                       const isFolga =
                                         (shift.start_time === '00:00' && shift.end_time === '00:00') ||
                                         !shift.start_time;
+                                      const isFerias = shift.start_time === 'FERIAS';
+
+                                      if (isFerias) {
+                                        return (
+                                          <div
+                                            key={shift.id}
+                                            className="shift-card shift-card-ferias"
+                                            onClick={() => onCellClick(employee.id, date, store.id, shift)}
+                                            draggable={true}
+                                            onDragStart={(e) => handleDragStart(e, employee.id, date)}
+                                            style={{
+                                              backgroundColor: 'var(--color-warning-bg, #fef3c7)',
+                                              borderColor: 'var(--color-warning-border, #fde68a)',
+                                              borderLeft: '4px solid var(--color-warning, #f59e0b)'
+                                            }}
+                                          >
+                                            <span className="shift-time" style={{ color: 'var(--color-gold-text, #80612c)', fontWeight: 700 }}>Férias</span>
+                                          </div>
+                                        );
+                                      }
 
                                       if (isFolga) {
                                         return (

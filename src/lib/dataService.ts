@@ -401,6 +401,59 @@ export async function deleteStore(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// Save Vacation Range for an employee
+export async function saveVacationRange(
+  employeeId: string,
+  dates: string[],
+  storeId: string
+): Promise<void> {
+  if (isDemoMode || !supabase) {
+    let currentShifts = getLocal<Shift[]>(STORAGE_KEYS.SHIFTS, []);
+    // Remove any existing shifts for this employee on these dates
+    currentShifts = currentShifts.filter(
+      s => !(s.employee_id === employeeId && dates.includes(s.date))
+    );
+    // Add new FERIAS shifts
+    dates.forEach((date, i) => {
+      currentShifts.push({
+        id: `vacation-${employeeId}-${date}-${Date.now()}-${i}`,
+        employee_id: employeeId,
+        store_id: storeId,
+        date,
+        start_time: 'FERIAS',
+        end_time: 'FERIAS',
+        break_duration_minutes: 0,
+        allow_overtime: false,
+      });
+    });
+    saveLocal(STORAGE_KEYS.SHIFTS, currentShifts);
+    return;
+  }
+
+  // Supabase:
+  // 1. Delete existing shifts for this employee on these dates
+  const { error: deleteError } = await supabase
+    .from('turnos')
+    .delete()
+    .eq('employee_id', employeeId)
+    .in('date', dates);
+  if (deleteError) throw new Error(deleteError.message);
+
+  // 2. Insert new FERIAS shifts
+  const insertData = dates.map(date => ({
+    employee_id: employeeId,
+    store_id: storeId,
+    date,
+    start_time: 'FERIAS',
+    end_time: 'FERIAS',
+    break_duration_minutes: 0,
+    allow_overtime: false,
+  }));
+
+  const { error: insertError } = await supabase.from('turnos').insert(insertData);
+  if (insertError) throw new Error(insertError.message);
+}
+
 // Setup realtime subscriptions
 export function subscribeToRealtime(
   onTableChange: () => void

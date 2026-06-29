@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Store, Employee, Shift } from '../lib/types';
-import { formatToDayMonth, getUniqueShifts } from '../lib/validation';
+import { formatToDayMonth, getUniqueShifts, isDateInMonth } from '../lib/validation';
 
 interface WhatsAppModalProps {
   isOpen: boolean;
@@ -27,6 +27,104 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
   const [exportText, setExportText] = useState<string>('');
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
+  const [pdfGenerating, setPdfGenerating] = useState<boolean>(false);
+
+  const loadHtml2Pdf = () => {
+    return new Promise<any>((resolve, reject) => {
+      if ((window as any).html2pdf) {
+        resolve((window as any).html2pdf);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = () => resolve((window as any).html2pdf);
+      script.onerror = (e) => reject(e);
+      document.head.appendChild(script);
+    });
+  };
+
+  const generatePDFBlob = async (): Promise<{ blob: Blob; filename: string } | null> => {
+    try {
+      const html2pdf = await loadHtml2Pdf();
+      const element = document.getElementById('pdf-export-container');
+      if (!element) return null;
+
+      const store = stores.find(s => s.id === selectedStoreId);
+      const storeName = store ? store.name.replace('Constance ', '') : 'Loja';
+      const monthLabel = new Date(activeYear, activeMonthIndex, 1)
+        .toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+        .replace(/^\w/, c => c.toUpperCase());
+      const filename = `Escala_${storeName.replace(/\s+/g, '_')}_${monthLabel.replace(/\s+/g, '_')}.pdf`;
+
+      const opt = {
+        margin: [0.3, 0.3, 0.3, 0.3],
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+      };
+
+      const pdf = html2pdf().set(opt).from(element);
+      const blob = await pdf.outputPdf('blob');
+      return { blob, filename };
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Erro ao gerar o PDF.');
+      return null;
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    setPdfGenerating(true);
+    const result = await generatePDFBlob();
+    setPdfGenerating(false);
+    if (!result) return;
+
+    const { blob, filename } = result;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSharePDF = async () => {
+    setPdfGenerating(true);
+    const result = await generatePDFBlob();
+    setPdfGenerating(false);
+    if (!result) return;
+
+    const { blob, filename } = result;
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'Escala de Trabalho',
+          text: `Escala de Trabalho - ${stores.find(s => s.id === selectedStoreId)?.name}`
+        });
+      } catch (err) {
+        console.log('Share cancelled or failed:', err);
+      }
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      alert(
+        "PDF baixado! Seu navegador não suporta compartilhamento direto de arquivos. Você pode anexar o arquivo baixado diretamente no grupo do WhatsApp."
+      );
+    }
+  };
 
   // Set default store and period when modal opens
   useEffect(() => {
@@ -142,26 +240,35 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
         });
       }
 
-      // Calculate folgas
+      // Calculate folgas & férias
       const folgas: string[] = [];
+      const ferias: string[] = [];
       homeEmployees.forEach(emp => {
         const empShiftsOnDay = uniqueShifts.filter(s => s.employee_id === emp.id && s.date === date);
 
         if (empShiftsOnDay.length === 0) {
           folgas.push(emp.name);
         } else {
-          const isExplicitFolga = empShiftsOnDay.every(
-            s => (s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time
-          );
+          const isFeriasVal = empShiftsOnDay.some(s => s.start_time === 'FERIAS');
+          if (isFeriasVal) {
+            ferias.push(emp.name);
+          } else {
+            const isExplicitFolga = empShiftsOnDay.every(
+              s => (s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time
+            );
 
-          if (isExplicitFolga) {
-            folgas.push(emp.name);
+            if (isExplicitFolga) {
+              folgas.push(emp.name);
+            }
           }
         }
       });
 
       if (folgas.length > 0) {
         text += `Folgas: ${folgas.join(', ')}\n`;
+      }
+      if (ferias.length > 0) {
+        text += `Férias: ${ferias.join(', ')}\n`;
       }
 
       text += `\n`;
@@ -236,6 +343,43 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
             />
           </div>
 
+          {/* PDF Exporter Section */}
+          <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+            <h3 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+              Exportar Calendário Mensal (PDF Visual)
+            </h3>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: '1.4' }}>
+              Gere um documento PDF em formato Paisagem (A4) correspondente ao calendário visual do app para imprimir ou compartilhar.
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleDownloadPDF}
+                disabled={pdfGenerating}
+                style={{ flex: 1, padding: '0.5rem', fontSize: '0.82rem' }}
+              >
+                📥 {pdfGenerating ? 'Gerando...' : 'Baixar PDF'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSharePDF}
+                disabled={pdfGenerating}
+                style={{
+                  flex: 1,
+                  padding: '0.5rem',
+                  fontSize: '0.82rem',
+                  background: 'linear-gradient(135deg, var(--color-gold), #d4af37)',
+                  border: 'none',
+                  color: '#fff'
+                }}
+              >
+                📤 {pdfGenerating ? 'Gerando...' : 'Enviar no WhatsApp'}
+              </button>
+            </div>
+          </div>
+
           <div className="modal-footer">
             {copySuccess && (
               <span className="copy-success-message" style={{ color: 'var(--color-success)', marginRight: 'auto', fontSize: '0.85rem' }}>Copiado para a área de transferência! 👍</span>
@@ -266,6 +410,148 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Print-optimized monthly calendar (hidden offscreen) */}
+      <div
+        id="pdf-export-container"
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: '-9999px',
+          width: '1080px',
+          backgroundColor: '#ffffff',
+          color: '#0f172a',
+          fontFamily: 'system-ui, sans-serif',
+          padding: '20px',
+          boxSizing: 'border-box',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #af8f56', paddingBottom: '12px', marginBottom: '15px' }}>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: '#0f172a' }}>
+              🗓️ Escala {stores.find(s => s.id === selectedStoreId)?.name || 'Loja'}
+            </h1>
+            <p style={{ fontSize: '12px', margin: '4px 0 0 0', color: '#64748b' }}>
+              Período: {new Date(activeYear, activeMonthIndex, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+            </p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: '11px', color: '#af8f56', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Gestão e Conformidade CLT
+            </span>
+          </div>
+        </div>
+
+        {/* Stacked Weeks */}
+        {monthlyWeeks.map((week, wIdx) => {
+          // Check if week has any dates in target month
+          const weekYear = monthlyWeeks[0][0] ? parseInt(monthlyWeeks[0][0].split('-')[0]) : new Date().getFullYear();
+          const weekMonth = monthlyWeeks[0].find(d => d !== null)?.split('-')[1] || '01';
+          const targetYear = parseInt(weekYear.toString());
+          const targetMonthIdx = parseInt(weekMonth) - 1;
+          const datesInMonth = week.filter((d): d is string => d !== null && isDateInMonth(d, targetYear, targetMonthIdx));
+
+          if (datesInMonth.length === 0) return null;
+
+          const firstDate = datesInMonth[0] || week.find(d => d !== null);
+          const lastDate = datesInMonth[datesInMonth.length - 1] || [...week].reverse().find(d => d !== null);
+          const fDay = firstDate ? parseInt(firstDate.split('-')[2]) : '';
+          const lDay = lastDate ? parseInt(lastDate.split('-')[2]) : '';
+
+          const weekEmployees = employees.filter(emp => emp.active && emp.home_store_id === selectedStoreId);
+
+          return (
+            <div key={wIdx} style={{ marginBottom: '25px', pageBreakInside: 'avoid' }}>
+              <h3 style={{ fontSize: '13px', margin: '0 0 8px 0', color: '#80612c', backgroundColor: 'rgba(175, 143, 86, 0.08)', padding: '6px 10px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Semana {wIdx + 1} {fDay && lDay && `(${fDay} a ${lDay})`}
+              </h3>
+
+              <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '11px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f8fafc' }}>
+                    <th style={{ width: '160px', padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Funcionário / Cargo</th>
+                    {week.map((date, dIdx) => {
+                      const dayLabel = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dIdx];
+                      let dateLabel = '';
+                      if (date) {
+                        const parts = date.split('-');
+                        dateLabel = `${parts[2]}/${parts[1]}`;
+                      }
+                      const isSunday = dIdx === 6;
+                      return (
+                        <th key={dIdx} style={{ padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
+                          {dayLabel} {dateLabel}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {weekEmployees.map(emp => {
+                    return (
+                      <tr key={emp.id}>
+                        <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>
+                          <div>{emp.name}</div>
+                          <div style={{ fontSize: '9px', fontWeight: 'normal', color: '#64748b', marginTop: '2px' }}>{emp.role}</div>
+                        </td>
+                        {week.map((date, dIdx) => {
+                          const isSunday = dIdx === 6;
+                          if (!date) {
+                            return <td key={dIdx} style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', opacity: 0.5 }} />;
+                          }
+
+                          const dayShifts = getUniqueShifts(shifts).filter(
+                            s => s.employee_id === emp.id && s.date === date
+                          );
+
+                          if (dayShifts.length === 0) {
+                            return (
+                              <td key={dIdx} style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
+                                Folga
+                              </td>
+                            );
+                          }
+
+                          const shift = dayShifts[0];
+                          const isFolga = (shift.start_time === '00:00' && shift.end_time === '00:00') || !shift.start_time;
+                          const isFerias = shift.start_time === 'FERIAS';
+
+                          if (isFerias) {
+                            return (
+                              <td key={dIdx} style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: '#fef3c7', color: '#80612c', fontWeight: 'bold' }}>
+                                Férias
+                              </td>
+                            );
+                          }
+
+                          if (isFolga) {
+                            return (
+                              <td key={dIdx} style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
+                                Folga
+                              </td>
+                            );
+                          }
+
+                          const storeShort = stores.find(s => s.id === shift.store_id)?.name.replace('Constance ', '') || 'Loja';
+                          const isOtherStore = shift.store_id !== selectedStoreId;
+
+                          return (
+                            <td key={dIdx} style={{ padding: '4px 6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isOtherStore ? '#f1f5f9' : (isSunday ? '#ffffff' : undefined), color: isOtherStore ? '#475569' : undefined }}>
+                              <div style={{ fontWeight: 'bold' }}>{shift.start_time} – {shift.end_time}</div>
+                              {isOtherStore && <div style={{ fontSize: '8px', color: '#64748b', marginTop: '2px' }}>{storeShort}</div>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -13,10 +13,11 @@ import {
   deleteEmployee,
   saveStore,
   deleteStore,
+  saveVacationRange,
   subscribeToRealtime,
 } from '../lib/dataService';
 import { isDemoMode } from '../lib/supabaseClient';
-import { runMonthlyValidations, getMonday, getMonthlyWeeks, getUniqueShifts } from '../lib/validation';
+import { runMonthlyValidations, getMonday, getMonthlyWeeks, getUniqueShifts, formatDateString } from '../lib/validation';
 import { AlertsPanel } from '../components/AlertsPanel';
 import { SidebarTracker } from '../components/SidebarTracker';
 import { ScheduleMatrix } from '../components/ScheduleMatrix';
@@ -185,6 +186,36 @@ export default function DashboardPage() {
     return false;
   };
 
+  const handleSaveVacation = async (employeeId: string, startDateStr: string, endDateStr: string) => {
+    setLoading(true);
+    try {
+      const dates: string[] = [];
+      const start = new Date(startDateStr + 'T12:00:00');
+      const end = new Date(endDateStr + 'T12:00:00');
+      const current = new Date(start);
+
+      while (current <= end) {
+        dates.push(formatDateString(current));
+        current.setDate(current.getDate() + 1);
+      }
+
+      if (dates.length === 0) return;
+
+      const emp = employees.find(e => e.id === employeeId);
+      if (!emp) return;
+
+      await saveVacationRange(employeeId, dates, emp.home_store_id);
+      markChanged();
+      await loadData();
+    } catch (err) {
+      console.error('Erro ao salvar férias:', err);
+      alert('Erro ao salvar férias.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   const handleSaveStore = async (store: Omit<Store, 'id'> & { id?: string }) => {
     try {
       await saveStore(store);
@@ -244,7 +275,8 @@ export default function DashboardPage() {
         const nonDiscardedShifts = shifts.filter(s => {
           const isStoreShift = s.store_id === storeId || storeEmployeeIds.includes(s.employee_id);
           const isInGrid = allGridDates.includes(s.date);
-          return !(isStoreShift && isInGrid);
+          const isFerias = s.start_time === 'FERIAS';
+          return !(isStoreShift && isInGrid && !isFerias);
         });
 
         const accumulatedShifts = [
@@ -279,7 +311,8 @@ export default function DashboardPage() {
       const shiftsToDelete = shifts.filter(s => {
         const isStoreShift = s.store_id === storeId || storeEmployeeIds.includes(s.employee_id);
         const isInGrid = allGridDates.includes(s.date);
-        return isStoreShift && isInGrid;
+        const isFerias = s.start_time === 'FERIAS';
+        return isStoreShift && isInGrid && !isFerias;
       });
       
       const toDeleteIds = shiftsToDelete.map(s => s.id);
@@ -659,6 +692,7 @@ export default function DashboardPage() {
         onClose={() => setIsEmployeeModalOpen(false)}
         onSave={handleSaveEmployee}
         onDelete={handleDeleteEmployee}
+        onSaveVacation={handleSaveVacation}
         stores={stores}
         employees={employees}
       />

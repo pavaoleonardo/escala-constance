@@ -50,8 +50,11 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
       const bMin = selectedShift.break_duration_minutes;
 
       const isFolgaVal = (start === '00:00' && end === '00:00') || !start;
+      const isFeriasVal = start === 'FERIAS' && end === 'FERIAS';
 
-      if (isFolgaVal) {
+      if (isFeriasVal) {
+        setShiftType('ferias');
+      } else if (isFolgaVal) {
         setShiftType('folga');
       } else if (start === '10:00' && end === '16:00' && bMin === 15) {
         setShiftType('manha');
@@ -96,7 +99,7 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
 
   // Compute live warnings in modal
   useEffect(() => {
-    if (shiftType === 'folga') {
+    if (shiftType === 'folga' || shiftType === 'ferias') {
       setWarningMsg('');
       return;
     }
@@ -155,7 +158,11 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
     let end = '00:00';
     let bMin = 0;
 
-    if (shiftType === 'manha') {
+    if (shiftType === 'ferias') {
+      start = 'FERIAS';
+      end = 'FERIAS';
+      bMin = 0;
+    } else if (shiftType === 'manha') {
       start = '10:00'; end = '16:00'; bMin = 15;
     } else if (shiftType === 'intermediario') {
       start = '14:00'; end = '20:00'; bMin = 15;
@@ -211,6 +218,7 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
                 required
               >
                 <option value="folga">Folga (DSR / Sem expediente)</option>
+                <option value="ferias">Férias (Licença / Afastamento)</option>
                 <option value="manha">Manhã (10:00 - 16:00)</option>
                 <option value="intermediario">Intermediário (14:00 - 20:00)</option>
                 <option value="noite">Noite (16:00 - 22:00)</option>
@@ -218,7 +226,7 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({
               </select>
             </div>
 
-            {shiftType !== 'folga' && (
+            {shiftType !== 'folga' && shiftType !== 'ferias' && (
               <>
                 {shiftType === 'personalizado' && (
                   <div className="custom-schedule-fields">

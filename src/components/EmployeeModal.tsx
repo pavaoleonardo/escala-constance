@@ -6,6 +6,7 @@ interface EmployeeModalProps {
   onClose: () => void;
   onSave: (emp: Omit<Employee, 'id'> & { id?: string }) => void;
   onDelete: (id: string) => Promise<boolean> | boolean | void;
+  onSaveVacation?: (employeeId: string, startDate: string, endDate: string) => Promise<void> | void;
   stores: Store[];
   employees: Employee[];
 }
@@ -15,10 +16,11 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
   onClose,
   onSave,
   onDelete,
+  onSaveVacation,
   stores,
   employees,
 }) => {
-  const [activeTab, setActiveTab] = useState<'list' | 'form'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'form' | 'vacation'>('list');
   const [empId, setEmpId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [role, setRole] = useState<string>('Vendedora');
@@ -26,6 +28,11 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
   const [weeklyHours, setWeeklyHours] = useState<number>(44);
   const [active, setActive] = useState<boolean>(true);
   const [defaultShift, setDefaultShift] = useState<string>('morning');
+
+  const [vacationEmp, setVacationEmp] = useState<Employee | null>(null);
+  const [vacationStart, setVacationStart] = useState<string>('');
+  const [vacationEnd, setVacationEnd] = useState<string>('');
+  const [vacationLoading, setVacationLoading] = useState<boolean>(false);
 
   // Set default store when stores list loads
   useEffect(() => {
@@ -50,6 +57,13 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     setActive(emp.active);
     setDefaultShift(emp.default_shift || 'morning');
     setActiveTab('form');
+  };
+
+  const handleVacationClick = (emp: Employee) => {
+    setVacationEmp(emp);
+    setVacationStart('');
+    setVacationEnd('');
+    setActiveTab('vacation');
   };
 
   const handleNewClick = () => {
@@ -79,6 +93,30 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     setActiveTab('list');
   };
 
+  const handleVacationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vacationEmp || !vacationStart || !vacationEnd) return;
+
+    if (new Date(vacationStart) > new Date(vacationEnd)) {
+      alert("A data de início não pode ser posterior à data de término.");
+      return;
+    }
+
+    if (onSaveVacation) {
+      setVacationLoading(true);
+      try {
+        await onSaveVacation(vacationEmp.id, vacationStart, vacationEnd);
+        setActiveTab('list');
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setVacationLoading(false);
+      }
+    } else {
+      alert("Operação de férias não configurada no servidor.");
+    }
+  };
+
   return (
     <div className="modal-backdrop active">
       <div className="modal-content card modal-lg">
@@ -104,6 +142,14 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
             >
               {empId ? 'Editar Funcionário' : 'Novo Funcionário'}
             </button>
+            {activeTab === 'vacation' && (
+              <button
+                type="button"
+                className="tab-button active"
+              >
+                Lançar Férias
+              </button>
+            )}
           </div>
 
           {activeTab === 'list' ? (
@@ -152,12 +198,20 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                           )}
                         </td>
                         <td>
-                           <button
+                          <button
                             type="button"
                             className="btn-text-action"
                             onClick={() => handleEditClick(emp)}
                           >
                             Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-text-action"
+                            onClick={() => handleVacationClick(emp)}
+                            style={{ marginLeft: '10px', color: 'var(--color-warning, #f59e0b)' }}
+                          >
+                            Férias
                           </button>
                         </td>
                       </tr>
@@ -166,7 +220,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : activeTab === 'form' ? (
             <form onSubmit={handleSubmit}>
               <div className="form-row">
                 <div className="form-group">
@@ -287,6 +341,61 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 )}
                 <button type="submit" className="btn btn-primary">
                   Salvar Funcionário
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleVacationSubmit}>
+              <div className="form-group info-read-only">
+                <label>Funcionário</label>
+                <div className="read-only-text">
+                  <strong>{vacationEmp?.name}</strong> ({vacationEmp?.role})
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="vacation-start">Data de Início</label>
+                  <input
+                    type="date"
+                    id="vacation-start"
+                    value={vacationStart}
+                    onChange={e => setVacationStart(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="vacation-end">Data de Fim</label>
+                  <input
+                    type="date"
+                    id="vacation-end"
+                    value={vacationEnd}
+                    onChange={e => setVacationEnd(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-inline-alert alert-warning" style={{ margin: '1.5rem 0' }}>
+                <span>ℹ️ <strong>Atenção:</strong> Isso preencherá todo o período selecionado com <strong>Férias</strong>, substituindo qualquer turno ou folga agendada anteriormente.</span>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setActiveTab('list')}
+                  disabled={vacationLoading}
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ backgroundColor: 'var(--color-warning, #f59e0b)', borderColor: 'var(--color-warning, #f59e0b)' }}
+                  disabled={vacationLoading}
+                >
+                  {vacationLoading ? 'Processando...' : 'Lançar Férias'}
                 </button>
               </div>
             </form>

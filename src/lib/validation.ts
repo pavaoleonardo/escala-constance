@@ -2,9 +2,20 @@ import { Store, Employee, Shift, ScheduleAlert } from './types';
 
 // Parse "HH:MM" to decimal hours (e.g. "10:30" -> 10.5)
 export function parseTimeToDecimal(timeStr: string): number {
-  if (!timeStr) return 0;
+  if (!timeStr || timeStr === 'FERIAS') return 0;
   const [hrs, mins] = timeStr.split(':').map(Number);
+  if (isNaN(hrs) || isNaN(mins)) return 0;
   return hrs + (mins / 60);
+}
+
+// Helper: Check if a shift is a rest day (folga or férias)
+export function isRestShift(shift?: Shift | null): boolean {
+  if (!shift) return true;
+  return (
+    (shift.start_time === '00:00' && shift.end_time === '00:00') ||
+    !shift.start_time ||
+    shift.start_time === 'FERIAS'
+  );
 }
 
 // Format decimal hours to "HH:MM"
@@ -110,7 +121,7 @@ export function calculateOvertime(
 
     let totalHours = 0;
     empShiftsThisWeek.forEach(shift => {
-      const isFolga = (shift.start_time === '00:00' && shift.end_time === '00:00') || !shift.start_time;
+      const isFolga = isRestShift(shift);
       if (isFolga) return;
       totalHours += getShiftDuration(shift.start_time, shift.end_time, shift.break_duration_minutes);
     });
@@ -152,7 +163,7 @@ export function runAllValidations(
     const daysWorkedSet = new Set<string>();
 
     empShiftsThisWeek.forEach(shift => {
-      const isFolga = (shift.start_time === '00:00' && shift.end_time === '00:00') || !shift.start_time;
+      const isFolga = isRestShift(shift);
       if (isFolga) return;
 
       const hrs = getShiftDuration(shift.start_time, shift.end_time, shift.break_duration_minutes);
@@ -195,7 +206,7 @@ export function runAllValidations(
     // D: Inter-journey Rest (Min 11h consecutive rest — CLT hard requirement)
     const allEmpShifts = shifts
       .filter(s => s.employee_id === employee.id)
-      .filter(s => !((s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time))
+      .filter(s => !isRestShift(s))
       .sort((a, b) => new Date(a.date + 'T' + a.start_time).getTime() - new Date(b.date + 'T' + b.start_time).getTime());
       
     for (let i = 0; i < allEmpShifts.length - 1; i++) {
@@ -228,14 +239,14 @@ export function runAllValidations(
     const tuesdayDateStr = weekDates[1];
 
     const sundayShift = empShiftsThisWeek.find(s => s.date === sundayDateStr);
-    const isSundayWorked = sundayShift && !((sundayShift.start_time === '00:00' && sundayShift.end_time === '00:00') || !sundayShift.start_time);
+    const isSundayWorked = sundayShift && !isRestShift(sundayShift);
 
     if (isSundayWorked) {
       const mondayShift = empShiftsThisWeek.find(s => s.date === mondayDateStr);
       const tuesdayShift = empShiftsThisWeek.find(s => s.date === tuesdayDateStr);
 
-      const isMondayOff = !mondayShift || (mondayShift.start_time === '00:00' && mondayShift.end_time === '00:00') || !mondayShift.start_time;
-      const isTuesdayOff = !tuesdayShift || (tuesdayShift.start_time === '00:00' && tuesdayShift.end_time === '00:00') || !tuesdayShift.start_time;
+      const isMondayOff = isRestShift(mondayShift);
+      const isTuesdayOff = isRestShift(tuesdayShift);
 
       if (!isMondayOff && !isTuesdayOff) {
         alerts.push({
@@ -351,8 +362,13 @@ export function runMonthlyValidations(
       const shift1 = uniqueShifts.find(s => s.employee_id === employee.id && s.date === sun1);
       const shift2 = uniqueShifts.find(s => s.employee_id === employee.id && s.date === sun2);
 
-      const isSun1Off = !shift1 || (shift1.start_time === '00:00' && shift1.end_time === '00:00') || !shift1.start_time;
-      const isSun2Off = !shift2 || (shift2.start_time === '00:00' && shift2.end_time === '00:00') || !shift2.start_time;
+      // Skip Sunday compliance alerts if employee is on holiday (Férias) on either Sunday
+      const isSun1Ferias = shift1?.start_time === 'FERIAS';
+      const isSun2Ferias = shift2?.start_time === 'FERIAS';
+      if (isSun1Ferias || isSun2Ferias) continue;
+
+      const isSun1Off = isRestShift(shift1);
+      const isSun2Off = isRestShift(shift2);
 
       if (isSun1Off && isSun2Off) {
         alerts.push({
@@ -363,8 +379,8 @@ export function runMonthlyValidations(
         });
       }
 
-      const isSun1Worked = shift1 && !((shift1.start_time === '00:00' && shift1.end_time === '00:00') || !shift1.start_time);
-      const isSun2Worked = shift2 && !((shift2.start_time === '00:00' && shift2.end_time === '00:00') || !shift2.start_time);
+      const isSun1Worked = shift1 && !isRestShift(shift1);
+      const isSun2Worked = shift2 && !isRestShift(shift2);
 
       if (isSun1Worked && isSun2Worked) {
         alerts.push({

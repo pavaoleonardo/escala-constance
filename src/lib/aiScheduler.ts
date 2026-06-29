@@ -168,6 +168,14 @@ export function generateAISchedule(
       const currentDateStr = weekDates[dayIdx];
       const isSunday       = dayIdx === 6;
 
+      // Skip generating if this employee has a pre-existing Férias shift on this day
+      const hasFerias = existingShifts.some(
+        s => s.employee_id === emp.id && s.date === currentDateStr && s.start_time === 'FERIAS'
+      );
+      if (hasFerias) {
+        continue;
+      }
+
       // Weekday rest day → Folga
       if (!isSunday && dayIdx === restDay) {
         generatedShifts.push({
