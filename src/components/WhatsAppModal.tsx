@@ -2,6 +2,47 @@ import React, { useState, useEffect } from 'react';
 import { Store, Employee, Shift } from '../lib/types';
 import { formatToDayMonth, getUniqueShifts, isDateInMonth } from '../lib/validation';
 
+function getMonthlyWeeksSundayStart(year: number, month: number): (string | null)[][] {
+  const weeks: (string | null)[][] = [];
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  const startPadding = firstDay.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  const currentDay = new Date(firstDay);
+  let currentWeek: (string | null)[] = [];
+
+  for (let i = startPadding; i >= 1; i--) {
+    const prevDate = new Date(year, month, 1 - i);
+    const yyyy = prevDate.getFullYear();
+    const mm = String(prevDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(prevDate.getDate()).padStart(2, '0');
+    currentWeek.push(`${yyyy}-${mm}-${dd}`);
+  }
+
+  while (currentDay <= lastDay) {
+    const yyyy = currentDay.getFullYear();
+    const mm = String(currentDay.getMonth() + 1).padStart(2, '0');
+    const dd = String(currentDay.getDate()).padStart(2, '0');
+    currentWeek.push(`${yyyy}-${mm}-${dd}`);
+
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek);
+      currentWeek = [];
+    }
+
+    currentDay.setDate(currentDay.getDate() + 1);
+  }
+
+  if (currentWeek.length > 0) {
+    while (currentWeek.length < 7) {
+      currentWeek.push(null);
+    }
+    weeks.push(currentWeek);
+  }
+
+  return weeks;
+}
+
 interface WhatsAppModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,6 +64,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   activeYear,
   activeMonthIndex,
 }) => {
+  const monthlyWeeksSunday = getMonthlyWeeksSundayStart(activeYear, activeMonthIndex);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
   const [exportText, setExportText] = useState<string>('');
@@ -399,7 +441,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                   </div>
 
                   {/* Render Weeks inside preview */}
-                  {monthlyWeeks.map((week, wIdx) => {
+                  {monthlyWeeksSunday.map((week, wIdx) => {
                     const datesInMonth = week.filter((d): d is string => d !== null && isDateInMonth(d, activeYear, activeMonthIndex));
                     if (datesInMonth.length === 0) return null;
 
@@ -421,13 +463,13 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                             <tr style={{ backgroundColor: '#f8fafc' }}>
                               <th style={{ width: '155px', padding: '5px 6px', border: '1px solid #cbd5e1', textAlign: 'left', wordWrap: 'break-word', whiteSpace: 'normal' }}>Funcionário / Cargo</th>
                               {week.map((date, dIdx) => {
-                                const dayLabel = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dIdx];
+                                const dayLabel = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dIdx];
                                 let dateLabel = '';
                                 if (date) {
                                   const parts = date.split('-');
                                   dateLabel = `${parts[2]}/${parts[1]}`;
                                 }
-                                const isSunday = dIdx === 6;
+                                const isSunday = dIdx === 0;
                                 return (
                                   <th key={dIdx} style={{ width: '115px', padding: '5px 6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
                                     {dayLabel} {dateLabel}
@@ -445,7 +487,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                                     <div style={{ fontSize: '8px', fontWeight: 'normal', color: '#64748b', marginTop: '1px' }}>{emp.role}</div>
                                   </td>
                                   {week.map((date, dIdx) => {
-                                    const isSunday = dIdx === 6;
+                                    const isSunday = dIdx === 0;
                                     if (!date) {
                                       return <td key={dIdx} style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', opacity: 0.5 }} />;
                                     }
@@ -612,7 +654,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
           </div>
 
           {/* Stacked Weeks */}
-          {monthlyWeeks.map((week, wIdx) => {
+          {monthlyWeeksSunday.map((week, wIdx) => {
             // Check if week has any dates in target month
             const datesInMonth = week.filter((d): d is string => d !== null && isDateInMonth(d, activeYear, activeMonthIndex));
 
@@ -642,13 +684,13 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                     <tr style={{ backgroundColor: '#f8fafc' }}>
                       <th style={{ width: '155px', padding: '4px 6px', border: '1px solid #cbd5e1', textAlign: 'left', wordWrap: 'break-word', whiteSpace: 'normal' }}>Funcionário / Cargo</th>
                       {week.map((date, dIdx) => {
-                        const dayLabel = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dIdx];
+                        const dayLabel = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dIdx];
                         let dateLabel = '';
                         if (date) {
                           const parts = date.split('-');
                           dateLabel = `${parts[2]}/${parts[1]}`;
                         }
-                        const isSunday = dIdx === 6;
+                        const isSunday = dIdx === 0;
                         return (
                           <th key={dIdx} style={{ width: '115px', padding: '4px 6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
                             {dayLabel} {dateLabel}
@@ -666,7 +708,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                             <div style={{ fontSize: '7.5px', fontWeight: 'normal', color: '#64748b', marginTop: '1px' }}>{emp.role}</div>
                           </td>
                           {week.map((date, dIdx) => {
-                            const isSunday = dIdx === 6;
+                            const isSunday = dIdx === 0;
                             if (!date) {
                               return <td key={dIdx} style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', opacity: 0.5 }} />;
                             }
