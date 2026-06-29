@@ -412,13 +412,16 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
         </div>
       </div>
 
-      {/* Print-optimized monthly calendar (hidden offscreen) */}
+      {/* Print-optimized monthly calendar (layered in background for rendering) */}
       <div
         id="pdf-export-container"
         style={{
-          position: 'absolute',
-          left: '-9999px',
-          top: '-9999px',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          zIndex: -9999,
+          pointerEvents: 'none',
+          opacity: 1,
           width: '1080px',
           backgroundColor: '#ffffff',
           color: '#0f172a',
