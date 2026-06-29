@@ -574,16 +574,16 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
         </div>
       </div>
 
-      {/* Print-optimized monthly calendar (permanently rendered at zero-height to allow correct layout reflow without squishing) */}
+      {/* Print-optimized monthly calendar (permanently rendered off-screen at full height to prevent Chrome culling and layout squishing) */}
       <div 
         id="pdf-export-wrapper" 
         style={{ 
-          position: 'absolute', 
+          position: 'fixed', 
           top: 0, 
-          left: 0, 
+          left: '-2000px', 
           width: '1000px', 
-          height: 0, 
-          overflow: 'hidden', 
+          height: 'auto', 
+          overflow: 'visible', 
           pointerEvents: 'none', 
           zIndex: -9999 
         }}
@@ -630,7 +630,6 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                 key={wIdx} 
                 style={{ 
                   marginBottom: '15px', 
-                  pageBreakAfter: (wIdx % 2 === 1 && wIdx < monthlyWeeks.length - 1) ? 'always' : 'auto',
                   pageBreakInside: 'avoid'
                 }}
               >
