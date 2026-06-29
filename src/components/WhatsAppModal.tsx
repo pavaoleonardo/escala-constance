@@ -416,10 +416,10 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                           Semana {wIdx + 1} {fDay && lDay && `(${fDay} a ${lDay})`}
                         </h5>
 
-                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '10px' }}>
+                        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '10px', wordBreak: 'break-word' }}>
                           <thead>
                             <tr style={{ backgroundColor: '#f8fafc' }}>
-                              <th style={{ width: '150px', padding: '5px 6px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Funcionário / Cargo</th>
+                              <th style={{ width: '155px', padding: '5px 6px', border: '1px solid #cbd5e1', textAlign: 'left', wordWrap: 'break-word', whiteSpace: 'normal' }}>Funcionário / Cargo</th>
                               {week.map((date, dIdx) => {
                                 const dayLabel = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dIdx];
                                 let dateLabel = '';
@@ -429,7 +429,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                                 }
                                 const isSunday = dIdx === 6;
                                 return (
-                                  <th key={dIdx} style={{ padding: '5px 6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
+                                  <th key={dIdx} style={{ width: '115px', padding: '5px 6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
                                     {dayLabel} {dateLabel}
                                   </th>
                                 );
@@ -440,7 +440,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                             {weekEmployees.map(emp => {
                               return (
                                 <tr key={emp.id}>
-                                  <td style={{ padding: '5px 6px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>
+                                  <td style={{ padding: '5px 6px', border: '1px solid #cbd5e1', fontWeight: 'bold', wordBreak: 'break-word', whiteSpace: 'normal' }}>
                                     <div>{emp.name}</div>
                                     <div style={{ fontSize: '8px', fontWeight: 'normal', color: '#64748b', marginTop: '1px' }}>{emp.role}</div>
                                   </td>
@@ -643,10 +643,10 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                   Semana {wIdx + 1} {fDay && lDay && `(${fDay} a ${lDay})`}
                 </h3>
 
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '11px' }}>
+                <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '11px', wordBreak: 'break-word' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f8fafc' }}>
-                      <th style={{ width: '160px', padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Funcionário / Cargo</th>
+                      <th style={{ width: '155px', padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'left', wordWrap: 'break-word', whiteSpace: 'normal' }}>Funcionário / Cargo</th>
                       {week.map((date, dIdx) => {
                         const dayLabel = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dIdx];
                         let dateLabel = '';
@@ -656,7 +656,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                         }
                         const isSunday = dIdx === 6;
                         return (
-                          <th key={dIdx} style={{ padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
+                          <th key={dIdx} style={{ width: '115px', padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
                             {dayLabel} {dateLabel}
                           </th>
                         );
@@ -667,7 +667,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                     {weekEmployees.map(emp => {
                       return (
                         <tr key={emp.id}>
-                          <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>
+                          <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontWeight: 'bold', wordBreak: 'break-word', whiteSpace: 'normal' }}>
                             <div>{emp.name}</div>
                             <div style={{ fontSize: '9px', fontWeight: 'normal', color: '#64748b', marginTop: '2px' }}>{emp.role}</div>
                           </td>
