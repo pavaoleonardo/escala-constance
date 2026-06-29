@@ -47,20 +47,8 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   const generatePDFBlob = async (): Promise<{ blob: Blob; filename: string } | null> => {
     try {
       const html2pdf = await loadHtml2Pdf();
-      
-      const wrapper = document.getElementById('pdf-export-wrapper');
-      if (wrapper) {
-        wrapper.style.display = 'block';
-      }
-      
-      // Let display update
-      await new Promise(resolve => setTimeout(resolve, 50));
-
       const element = document.getElementById('pdf-export-container');
-      if (!element) {
-        if (wrapper) wrapper.style.display = 'none';
-        return null;
-      }
+      if (!element) return null;
 
       const store = stores.find(s => s.id === selectedStoreId);
       const storeName = store ? store.name.replace('Constance ', '') : 'Loja';
@@ -80,18 +68,9 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
       const pdf = html2pdf().set(opt).from(element);
       const blob = await pdf.outputPdf('blob');
-      
-      if (wrapper) {
-        wrapper.style.display = 'none';
-      }
-      
       return { blob, filename };
     } catch (err) {
       console.error('Error generating PDF:', err);
-      const wrapper = document.getElementById('pdf-export-wrapper');
-      if (wrapper) {
-        wrapper.style.display = 'none';
-      }
       alert('Erro ao gerar o PDF.');
       return null;
     }
@@ -595,8 +574,20 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
         </div>
       </div>
 
-      {/* Print-optimized monthly calendar (hidden in absolute flow to not affect centering) */}
-      <div id="pdf-export-wrapper" style={{ display: 'none', position: 'absolute' }}>
+      {/* Print-optimized monthly calendar (always rendered off-screen to the right to not affect centering or viewport scroll) */}
+      <div 
+        id="pdf-export-wrapper" 
+        style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: '100vw', 
+          width: '1000px', 
+          height: '100vh', 
+          overflow: 'hidden', 
+          pointerEvents: 'none', 
+          zIndex: -9999 
+        }}
+      >
         <div
           id="pdf-export-container"
           style={{
