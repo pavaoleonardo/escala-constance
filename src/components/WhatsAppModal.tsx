@@ -28,7 +28,6 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   const [exportText, setExportText] = useState<string>('');
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [pdfGenerating, setPdfGenerating] = useState<boolean>(false);
-  const [isPrinting, setIsPrinting] = useState<boolean>(false);
 
   const loadHtml2Pdf = () => {
     return new Promise<any>((resolve, reject) => {
@@ -47,16 +46,8 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   const generatePDFBlob = async (): Promise<{ blob: Blob; filename: string } | null> => {
     try {
       const html2pdf = await loadHtml2Pdf();
-      setIsPrinting(true);
-      
-      // Wait for rendering next tick
-      await new Promise(resolve => setTimeout(resolve, 300));
-
       const element = document.getElementById('pdf-export-container');
-      if (!element) {
-        setIsPrinting(false);
-        return null;
-      }
+      if (!element) return null;
 
       const store = stores.find(s => s.id === selectedStoreId);
       const storeName = store ? store.name.replace('Constance ', '') : 'Loja';
@@ -69,17 +60,15 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
         margin: [0.3, 0.3, 0.3, 0.3],
         filename,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        html2canvas: { scale: 2, useCORS: true, logging: false, width: 1000 },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
       };
 
       const pdf = html2pdf().set(opt).from(element);
       const blob = await pdf.outputPdf('blob');
-      setIsPrinting(false);
       return { blob, filename };
     } catch (err) {
       console.error('Error generating PDF:', err);
-      setIsPrinting(false);
       alert('Erro ao gerar o PDF.');
       return null;
     }
@@ -423,163 +412,142 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
         </div>
       </div>
 
-      {/* Print-optimized monthly calendar overlay */}
-      {isPrinting && (
+      {/* Print-optimized monthly calendar (always in DOM, but visually hidden using zero-height wrapper) */}
+      <div style={{ height: 0, overflow: 'hidden', position: 'relative' }}>
         <div
+          id="pdf-export-container"
           style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(255, 255, 255, 0.98)',
-            zIndex: 999999,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'start',
-            overflowY: 'auto',
-            padding: '40px 0',
-            boxSizing: 'border-box'
+            width: '1000px',
+            backgroundColor: '#ffffff',
+            color: '#0f172a',
+            fontFamily: 'system-ui, sans-serif',
+            padding: '20px',
+            boxSizing: 'border-box',
           }}
         >
-          <div
-            id="pdf-export-container"
-            style={{
-              width: '1020px',
-              backgroundColor: '#ffffff',
-              color: '#0f172a',
-              fontFamily: 'system-ui, sans-serif',
-              padding: '20px',
-              boxSizing: 'border-box',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1'
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #af8f56', paddingBottom: '12px', marginBottom: '15px' }}>
-              <div>
-                <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: '#0f172a' }}>
-                  🗓️ Escala {stores.find(s => s.id === selectedStoreId)?.name || 'Loja'}
-                </h1>
-                <p style={{ fontSize: '12px', margin: '4px 0 0 0', color: '#64748b' }}>
-                  Período: {new Date(activeYear, activeMonthIndex, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
-                </p>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '11px', color: '#af8f56', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Gestão e Conformidade CLT
-                </span>
-              </div>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #af8f56', paddingBottom: '12px', marginBottom: '15px' }}>
+            <div>
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: '#0f172a' }}>
+                🗓️ Escala {stores.find(s => s.id === selectedStoreId)?.name || 'Loja'}
+              </h1>
+              <p style={{ fontSize: '12px', margin: '4px 0 0 0', color: '#64748b' }}>
+                Período: {new Date(activeYear, activeMonthIndex, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+              </p>
             </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '11px', color: '#af8f56', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Gestão e Conformidade CLT
+              </span>
+            </div>
+          </div>
 
-            {/* Stacked Weeks */}
-            {monthlyWeeks.map((week, wIdx) => {
-              // Check if week has any dates in target month
-              const datesInMonth = week.filter((d): d is string => d !== null && isDateInMonth(d, activeYear, activeMonthIndex));
+          {/* Stacked Weeks */}
+          {monthlyWeeks.map((week, wIdx) => {
+            // Check if week has any dates in target month
+            const datesInMonth = week.filter((d): d is string => d !== null && isDateInMonth(d, activeYear, activeMonthIndex));
 
-              if (datesInMonth.length === 0) return null;
+            if (datesInMonth.length === 0) return null;
 
-              const firstDate = datesInMonth[0] || week.find(d => d !== null);
-              const lastDate = datesInMonth[datesInMonth.length - 1] || [...week].reverse().find(d => d !== null);
-              const fDay = firstDate ? parseInt(firstDate.split('-')[2]) : '';
-              const lDay = lastDate ? parseInt(lastDate.split('-')[2]) : '';
+            const firstDate = datesInMonth[0] || week.find(d => d !== null);
+            const lastDate = datesInMonth[datesInMonth.length - 1] || [...week].reverse().find(d => d !== null);
+            const fDay = firstDate ? parseInt(firstDate.split('-')[2]) : '';
+            const lDay = lastDate ? parseInt(lastDate.split('-')[2]) : '';
 
-              const weekEmployees = employees.filter(emp => emp.active && emp.home_store_id === selectedStoreId);
+            const weekEmployees = employees.filter(emp => emp.active && emp.home_store_id === selectedStoreId);
 
-              return (
-                <div key={wIdx} style={{ marginBottom: '25px', pageBreakInside: 'avoid' }}>
-                  <h3 style={{ fontSize: '13px', margin: '0 0 8px 0', color: '#80612c', backgroundColor: 'rgba(175, 143, 86, 0.08)', padding: '6px 10px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Semana {wIdx + 1} {fDay && lDay && `(${fDay} a ${lDay})`}
-                  </h3>
+            return (
+              <div key={wIdx} style={{ marginBottom: '25px', pageBreakInside: 'avoid' }}>
+                <h3 style={{ fontSize: '13px', margin: '0 0 8px 0', color: '#80612c', backgroundColor: 'rgba(175, 143, 86, 0.08)', padding: '6px 10px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Semana {wIdx + 1} {fDay && lDay && `(${fDay} a ${lDay})`}
+                </h3>
 
-                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '11px' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f8fafc' }}>
-                        <th style={{ width: '160px', padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Funcionário / Cargo</th>
-                        {week.map((date, dIdx) => {
-                          const dayLabel = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dIdx];
-                          let dateLabel = '';
-                          if (date) {
-                            const parts = date.split('-');
-                            dateLabel = `${parts[2]}/${parts[1]}`;
-                          }
-                          const isSunday = dIdx === 6;
-                          return (
-                            <th key={dIdx} style={{ padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
-                              {dayLabel} {dateLabel}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {weekEmployees.map(emp => {
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '11px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8fafc' }}>
+                      <th style={{ width: '160px', padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'left' }}>Funcionário / Cargo</th>
+                      {week.map((date, dIdx) => {
+                        const dayLabel = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][dIdx];
+                        let dateLabel = '';
+                        if (date) {
+                          const parts = date.split('-');
+                          dateLabel = `${parts[2]}/${parts[1]}`;
+                        }
+                        const isSunday = dIdx === 6;
                         return (
-                          <tr key={emp.id}>
-                            <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>
-                              <div>{emp.name}</div>
-                              <div style={{ fontSize: '9px', fontWeight: 'normal', color: '#64748b', marginTop: '2px' }}>{emp.role}</div>
-                            </td>
-                            {week.map((date, dIdx) => {
-                              const isSunday = dIdx === 6;
-                              if (!date) {
-                                return <td key={dIdx} style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', opacity: 0.5 }} />;
-                              }
-
-                              const dayShifts = getUniqueShifts(shifts).filter(
-                                s => s.employee_id === emp.id && s.date === date
-                              );
-
-                              if (dayShifts.length === 0) {
-                                return (
-                                  <td key={dIdx} style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
-                                    Folga
-                                  </td>
-                                );
-                              }
-
-                              const shift = dayShifts[0];
-                              const isFolga = (shift.start_time === '00:00' && shift.end_time === '00:00') || !shift.start_time;
-                              const isFerias = shift.start_time === 'FERIAS';
-
-                              if (isFerias) {
-                                return (
-                                  <td key={dIdx} style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: '#fef3c7', color: '#80612c', fontWeight: 'bold' }}>
-                                    Férias
-                                  </td>
-                                );
-                              }
-
-                              if (isFolga) {
-                                return (
-                                  <td key={dIdx} style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
-                                    Folga
-                                  </td>
-                                );
-                              }
-
-                              const storeShort = stores.find(s => s.id === shift.store_id)?.name.replace('Constance ', '') || 'Loja';
-                              const isOtherStore = shift.store_id !== selectedStoreId;
-
-                              return (
-                                <td key={dIdx} style={{ padding: '4px 6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isOtherStore ? '#f1f5f9' : (isSunday ? '#ffffff' : undefined), color: isOtherStore ? '#475569' : undefined }}>
-                                  <div style={{ fontWeight: 'bold' }}>{shift.start_time} – {shift.end_time}</div>
-                                  {isOtherStore && <div style={{ fontSize: '8px', color: '#64748b', marginTop: '2px' }}>{storeShort}</div>}
-                                </td>
-                              );
-                            })}
-                          </tr>
+                          <th key={dIdx} style={{ padding: '6px 8px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isSunday ? '#e2f9e6' : undefined, color: isSunday ? '#2b8a3e' : undefined }}>
+                            {dayLabel} {dateLabel}
+                          </th>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })}
-          </div>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weekEmployees.map(emp => {
+                      return (
+                        <tr key={emp.id}>
+                          <td style={{ padding: '6px 8px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>
+                            <div>{emp.name}</div>
+                            <div style={{ fontSize: '9px', fontWeight: 'normal', color: '#64748b', marginTop: '2px' }}>{emp.role}</div>
+                          </td>
+                          {week.map((date, dIdx) => {
+                            const isSunday = dIdx === 6;
+                            if (!date) {
+                              return <td key={dIdx} style={{ border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', opacity: 0.5 }} />;
+                            }
+
+                            const dayShifts = getUniqueShifts(shifts).filter(
+                              s => s.employee_id === emp.id && s.date === date
+                            );
+
+                            if (dayShifts.length === 0) {
+                              return (
+                                <td key={dIdx} style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
+                                  Folga
+                                </td>
+                              );
+                            }
+
+                            const shift = dayShifts[0];
+                            const isFolga = (shift.start_time === '00:00' && shift.end_time === '00:00') || !shift.start_time;
+                            const isFerias = shift.start_time === 'FERIAS';
+
+                            if (isFerias) {
+                              return (
+                                <td key={dIdx} style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: '#fef3c7', color: '#80612c', fontWeight: 'bold' }}>
+                                  Férias
+                                </td>
+                              );
+                            }
+
+                            if (isFolga) {
+                              return (
+                                <td key={dIdx} style={{ padding: '6px', border: '1px solid #cbd5e1', textAlign: 'center', color: isSunday ? '#2b8a3e' : '#64748b', backgroundColor: isSunday ? '#ebfbee' : undefined }}>
+                                  Folga
+                                </td>
+                              );
+                            }
+
+                            const storeShort = stores.find(s => s.id === shift.store_id)?.name.replace('Constance ', '') || 'Loja';
+                            const isOtherStore = shift.store_id !== selectedStoreId;
+
+                            return (
+                              <td key={dIdx} style={{ padding: '4px 6px', border: '1px solid #cbd5e1', textAlign: 'center', backgroundColor: isOtherStore ? '#f1f5f9' : (isSunday ? '#ffffff' : undefined), color: isOtherStore ? '#475569' : undefined }}>
+                                <div style={{ fontWeight: 'bold' }}>{shift.start_time} – {shift.end_time}</div>
+                                {isOtherStore && <div style={{ fontSize: '8px', color: '#64748b', marginTop: '2px' }}>{storeShort}</div>}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
     </div>
   );
 };
