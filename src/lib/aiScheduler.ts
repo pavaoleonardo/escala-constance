@@ -110,68 +110,84 @@ export function generateAISchedule(
   // ── Sunday context for this week ──────────────────────────────────────────
   const sundayDateStr = weekDates[6]; // index 6 = Sunday
   const sundayDate    = new Date(sundayDateStr + 'T12:00:00');
-  const sundayYear    = sundayDate.getFullYear();
-  const sundayMonth   = sundayDate.getMonth();
 
-  const thisSundayIdx     = sundayIndexInMonth(sundayDate);
+  const thisSundayIdx = sundayIndexInMonth(sundayDate);
 
-  // ── Assignments ───────────────────────────────────────────────────────────
-  const restDayMap    = new Map<string, number>();  // emp.id → dayIdx 0=Mon,1=Tue
-  const shiftPattern  = new Map<string, number>();  // emp.id → 0|1|2
-  const worksSunday   = new Map<string, boolean>(); // emp.id → true if works this Sunday
+  // ── Pass 1: Determine Sunday assignment and whether a weekday rest is needed ──
+  // restDayMap: null = no weekday rest (employee rests on Sunday)
+  //             0   = Monday off
+  //             1   = Tuesday off
+  const restDayMap    = new Map<string, number | null>();
+  const shiftPattern  = new Map<string, number>();
+  const worksSunday   = new Map<string, boolean>();
+
+  // Employees who need a weekday rest (those who worked the previous Sunday)
+  // We collect them first so we can split them evenly between Mon and Tue.
+  const needsWeekdayRest: string[] = [];
 
   storeEmployees.forEach((emp, empIndex) => {
-    // ── Shift pattern: read from history first, then preference, then rotate ─
+    // ── Shift pattern ────────────────────────────────────────────────────────
     let pattern: number;
     const detectedPattern = detectShiftPattern(emp.id, existingShifts);
-    if (detectedPattern !== null) {
-      pattern = detectedPattern;
-    } else if (emp.default_shift === 'morning')       { pattern = 0; }
-    else if (emp.default_shift === 'intermediate')     { pattern = 1; }
-    else if (emp.default_shift === 'evening')          { pattern = 2; }
-    else { pattern = empIndex % 3; }
+    if (detectedPattern !== null)                  { pattern = detectedPattern; }
+    else if (emp.default_shift === 'morning')       { pattern = 0; }
+    else if (emp.default_shift === 'intermediate')  { pattern = 1; }
+    else if (emp.default_shift === 'evening')       { pattern = 2; }
+    else                                            { pattern = empIndex % 3; }
     shiftPattern.set(emp.id, pattern);
 
-    // ── Sunday: employees alternate Sundays off each week ────────────────────
-    const prevSunday = new Date(currentWeekStart);
+    // ── Sunday assignment ─────────────────────────────────────────────────────
+    const prevSunday    = new Date(currentWeekStart);
     prevSunday.setDate(prevSunday.getDate() - 1);
     const prevSundayStr = formatDateString(prevSunday);
     const prevSundayShift = existingShifts.find(
       s => s.employee_id === emp.id && s.date === prevSundayStr
     );
 
-    let worksThisSunday = true;
+    let worksThisSunday: boolean;
     if (prevSundayShift) {
-      const hadSundayOffPrevWeek = (prevSundayShift.start_time === '00:00' && prevSundayShift.end_time === '00:00') || !prevSundayShift.start_time;
-      // Alternate: if they had Sunday off last week → work this Sunday.
-      // If they worked last Sunday → rest this Sunday.
-      worksThisSunday = hadSundayOffPrevWeek;
+      const hadOffLastSunday =
+        (prevSundayShift.start_time === '00:00' && prevSundayShift.end_time === '00:00') ||
+        !prevSundayShift.start_time;
+      worksThisSunday = hadOffLastSunday; // rested last → works this; worked last → rests this
     } else {
-      // No history: distribute evenly using employee index and Sunday index
+      // No history: spread evenly (half work, half rest per Sunday)
       worksThisSunday = (thisSundayIdx + empIndex) % 2 === 0;
     }
     worksSunday.set(emp.id, worksThisSunday);
 
-    // ── Weekday rest: CLT rule ────────────────────────────────────────────────
-    // If the employee WORKED last Sunday, they must have Mon or Tue off this week.
-    // If they rested on Sunday (this or last week), no weekday rest is assigned
-    // (Sunday already counts as their weekly rest day).
+    // ── Weekday rest eligibility ──────────────────────────────────────────────
+    // CLT: if the employee WORKED the previous Sunday, they are owed Mon or Tue off.
+    // If Sunday was already their rest day this week, no weekday rest is needed.
     const prevSundayWorked = prevSundayShift
-      ? !((prevSundayShift.start_time === '00:00' && prevSundayShift.end_time === '00:00') || !prevSundayShift.start_time)
-      : worksThisSunday; // no history: assume same as this week's assignment
+      ? !(
+          (prevSundayShift.start_time === '00:00' && prevSundayShift.end_time === '00:00') ||
+          !prevSundayShift.start_time
+        )
+      : !worksThisSunday; // no history: if resting this Sunday, assume also worked last Sunday
 
     if (prevSundayWorked) {
-      // Alternate Mon(0) / Tue(1) between employees who worked last Sunday
-      restDayMap.set(emp.id, empIndex % 2); // even → Mon(0), odd → Tue(1)
+      needsWeekdayRest.push(emp.id);
+      restDayMap.set(emp.id, null); // placeholder — assigned below
+    } else {
+      restDayMap.set(emp.id, null); // no weekday rest (resting on Sunday covers weekly rest)
     }
-    // else: no weekday rest assigned — employee rested on Sunday already
+  });
+
+  // ── Pass 2: Distribute weekday rest evenly between Mon and Tue ───────────────
+  // To guarantee the store always has coverage, we alternate strictly:
+  // first half of needsWeekdayRest → Monday (0), second half → Tuesday (1).
+  // This prevents all employees from sharing the same rest day.
+  const half = Math.ceil(needsWeekdayRest.length / 2);
+  needsWeekdayRest.forEach((empId, i) => {
+    restDayMap.set(empId, i < half ? 0 : 1); // 0 = Mon, 1 = Tue
   });
 
   // ── Build shifts ──────────────────────────────────────────────────────────
   const generatedShifts: Omit<Shift, 'id'>[] = [];
 
   storeEmployees.forEach((emp) => {
-    const restDay        = restDayMap.get(emp.id) ?? 0;
+    const restDay        = restDayMap.get(emp.id) ?? null; // null = no weekday rest
     const pattern        = shiftPattern.get(emp.id) ?? 0;
     const empWorksSunday = worksSunday.get(emp.id) ?? true;
 
@@ -179,16 +195,14 @@ export function generateAISchedule(
       const currentDateStr = weekDates[dayIdx];
       const isSunday       = dayIdx === 6;
 
-      // Skip generating if this employee has a pre-existing Férias shift on this day
+      // Skip if employee has a pre-existing Férias shift on this day
       const hasFerias = existingShifts.some(
         s => s.employee_id === emp.id && s.date === currentDateStr && s.start_time === 'FERIAS'
       );
-      if (hasFerias) {
-        continue;
-      }
+      if (hasFerias) continue;
 
-      // Weekday rest day → Folga
-      if (!isSunday && dayIdx === restDay) {
+      // Weekday rest day (Mon or Tue) — only if this employee needs one
+      if (!isSunday && restDay !== null && dayIdx === restDay) {
         generatedShifts.push({
           employee_id:            emp.id,
           store_id:               storeId,
@@ -204,7 +218,6 @@ export function generateAISchedule(
       // Sunday
       if (isSunday) {
         if (!empWorksSunday) {
-          // This employee's one Sunday off this month
           generatedShifts.push({
             employee_id:            emp.id,
             store_id:               storeId,
@@ -215,14 +228,13 @@ export function generateAISchedule(
             allow_overtime:         false,
           });
         } else {
-          // Works Sunday — use the store's Sunday window
           generatedShifts.push({
             employee_id:            emp.id,
             store_id:               storeId,
             date:                   currentDateStr,
             start_time:             sundayOpen,
             end_time:               sundayClose,
-            break_duration_minutes: 60, // Sunday requires 60min break (CLT)
+            break_duration_minutes: 60,
             allow_overtime:         false,
           });
         }
