@@ -164,8 +164,9 @@ export default function DashboardPage() {
 
   const handleSaveEmployee = async (employee: Omit<Employee, 'id'> & { id?: string }) => {
     try {
-      await saveEmployee(employee);
+      const saved = await saveEmployee(employee);
       await loadData();
+      return saved; // Return the saved employee so EmployeeModal can use the real id for vacation
     } catch (err) {
       alert('Erro ao salvar funcionário: ' + err);
     }

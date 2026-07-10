@@ -4,7 +4,7 @@ import { Store, Employee } from '../lib/types';
 interface EmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (emp: Omit<Employee, 'id'> & { id?: string }) => void;
+  onSave: (emp: Omit<Employee, 'id'> & { id?: string }) => Promise<{ id: string } | undefined> | { id: string } | undefined | void;
   onDelete: (id: string) => Promise<boolean> | boolean | void;
   onSaveVacation?: (employeeId: string, startDate: string, endDate: string) => Promise<void> | void;
   stores: Store[];
@@ -81,14 +81,15 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (empId && hasVacationRange && vacationStart && vacationEnd) {
+    if (hasVacationRange && vacationStart && vacationEnd) {
       if (new Date(vacationStart) > new Date(vacationEnd)) {
         alert("A data de início das férias não pode ser posterior à data de término.");
         return;
       }
     }
 
-    onSave({
+    // Save employee first and get the confirmed id (may differ from local empId for new employees)
+    const savedResult = await onSave({
       id: empId || undefined,
       name,
       role: role.trim() || 'Vendedora',
@@ -98,12 +99,16 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
       default_shift: defaultShift,
     });
 
-    if (empId && hasVacationRange && vacationStart && vacationEnd && onSaveVacation) {
+    // Use the confirmed id returned by onSave (important for new employees and UUID migration)
+    const confirmedId = savedResult?.id || empId;
+
+    if (confirmedId && hasVacationRange && vacationStart && vacationEnd && onSaveVacation) {
       setVacationLoading(true);
       try {
-        await onSaveVacation(empId, vacationStart, vacationEnd);
+        await onSaveVacation(confirmedId, vacationStart, vacationEnd);
       } catch (err) {
         console.error("Erro ao salvar período de férias:", err);
+        alert('Erro ao salvar férias. Verifique as datas e tente novamente.');
       } finally {
         setVacationLoading(false);
       }
