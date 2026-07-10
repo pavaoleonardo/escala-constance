@@ -121,9 +121,6 @@ export function generateAISchedule(
   const worksSunday   = new Map<string, boolean>(); // emp.id → true if works this Sunday
 
   storeEmployees.forEach((emp, empIndex) => {
-    // ── Weekday rest: strictly Mon or Tue ─────────────────────────────────
-    restDayMap.set(emp.id, empIndex % 2); // even → Mon(0), odd → Tue(1)
-
     // ── Shift pattern: read from history first, then preference, then rotate ─
     let pattern: number;
     const detectedPattern = detectShiftPattern(emp.id, existingShifts);
@@ -135,7 +132,7 @@ export function generateAISchedule(
     else { pattern = empIndex % 3; }
     shiftPattern.set(emp.id, pattern);
 
-    // ── Sunday: employees must alternate Sundays off (no consecutive Sunday work/rest) ──
+    // ── Sunday: employees alternate Sundays off each week ────────────────────
     const prevSunday = new Date(currentWeekStart);
     prevSunday.setDate(prevSunday.getDate() - 1);
     const prevSundayStr = formatDateString(prevSunday);
@@ -146,14 +143,28 @@ export function generateAISchedule(
     let worksThisSunday = true;
     if (prevSundayShift) {
       const hadSundayOffPrevWeek = (prevSundayShift.start_time === '00:00' && prevSundayShift.end_time === '00:00') || !prevSundayShift.start_time;
-      // Alternate: if they had Sunday off last week, they work this Sunday.
-      // If they worked last Sunday, they rest this Sunday.
+      // Alternate: if they had Sunday off last week → work this Sunday.
+      // If they worked last Sunday → rest this Sunday.
       worksThisSunday = hadSundayOffPrevWeek;
     } else {
-      // Fallback: alternate based on week index and employee index
+      // No history: distribute evenly using employee index and Sunday index
       worksThisSunday = (thisSundayIdx + empIndex) % 2 === 0;
     }
     worksSunday.set(emp.id, worksThisSunday);
+
+    // ── Weekday rest: CLT rule ────────────────────────────────────────────────
+    // If the employee WORKED last Sunday, they must have Mon or Tue off this week.
+    // If they rested on Sunday (this or last week), no weekday rest is assigned
+    // (Sunday already counts as their weekly rest day).
+    const prevSundayWorked = prevSundayShift
+      ? !((prevSundayShift.start_time === '00:00' && prevSundayShift.end_time === '00:00') || !prevSundayShift.start_time)
+      : worksThisSunday; // no history: assume same as this week's assignment
+
+    if (prevSundayWorked) {
+      // Alternate Mon(0) / Tue(1) between employees who worked last Sunday
+      restDayMap.set(emp.id, empIndex % 2); // even → Mon(0), odd → Tue(1)
+    }
+    // else: no weekday rest assigned — employee rested on Sunday already
   });
 
   // ── Build shifts ──────────────────────────────────────────────────────────

@@ -266,7 +266,7 @@ export async function updateShiftsBatch(
 // Save/Update Employee
 export async function saveEmployee(employee: Omit<Employee, 'id'> & { id?: string }): Promise<Employee> {
   const isNew = !employee.id;
-  const employeeId = employee.id || 'emp-' + Date.now();
+  const employeeId = employee.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const completedEmployee: Employee = { ...employee, id: employeeId };
 
   if (isDemoMode || !supabase) {
