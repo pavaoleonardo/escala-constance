@@ -416,23 +416,31 @@ export function runMonthlyValidations(
       const sun1 = sundays[i];
       const sun2 = sundays[i + 1];
 
-      const shift1 = uniqueShifts.find(s => s.employee_id === employee.id && s.date === sun1);
-      const shift2 = uniqueShifts.find(s => s.employee_id === employee.id && s.date === sun2);
+      const shift1 = uniqueShifts.find(
+        (s) => s.employee_id === employee.id && s.date === sun1,
+      );
+      const shift2 = uniqueShifts.find(
+        (s) => s.employee_id === employee.id && s.date === sun2,
+      );
 
       // Skip Sunday compliance alerts if employee is on holiday (Férias) on either Sunday
       const isSun1Ferias = shift1?.start_time === 'FERIAS';
       const isSun2Ferias = shift2?.start_time === 'FERIAS';
       if (isSun1Ferias || isSun2Ferias) continue;
 
-      const isSun1Off = isRestShift(shift1);
-      const isSun2Off = isRestShift(shift2);
+      // Only treat a Sunday as "off" if there is an explicit rest shift in the
+      // data. A missing shift should NOT be assumed to be a rest day — that
+      // would produce false positives (e.g. an employee who works that Sunday
+      // but whose shift record is absent).
+      const isSun1Off = shift1 ? isRestShift(shift1) : false;
+      const isSun2Off = shift2 ? isRestShift(shift2) : false;
 
       if (isSun1Off && isSun2Off) {
         alerts.push({
           type: 'sunday',
           message: `⚠️ <strong>${employee.name}</strong> folgou em domingos consecutivos (${formatToDayMonth(sun1)} e ${formatToDayMonth(sun2)}). É obrigatório trabalhar no domingo seguinte após uma folga de domingo.`,
           employeeId: employee.id,
-          date: sun2
+          date: sun2,
         });
       }
 
@@ -444,7 +452,7 @@ export function runMonthlyValidations(
           type: 'sunday',
           message: `⚠️ <strong>${employee.name}</strong> trabalhou em domingos consecutivos (${formatToDayMonth(sun1)} e ${formatToDayMonth(sun2)}). É obrigatório folgar no domingo seguinte após trabalhar um domingo.`,
           employeeId: employee.id,
-          date: sun2
+          date: sun2,
         });
       }
     }

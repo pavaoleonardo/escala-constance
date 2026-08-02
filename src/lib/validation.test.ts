@@ -197,24 +197,26 @@ function runTests() {
       : '❌ Teste 3 (Limite 10h Diárias) FAILED',
   );
 
-  // Test Case 4: Sunday worked but no Monday/Tuesday/Wednesday off
-  // Employee works on Sunday (2026-06-14), and also works on Monday (2026-06-08), Tuesday (2026-06-09), and Wednesday (2026-06-10)
+  // Test Case 4: Sunday worked but no Monday/Tuesday/Wednesday off in the
+  // FOLLOWING week (compensatory rest after a worked Sunday).
+  // Employee works on Sunday (2026-06-14) and also works the following week's
+  // Monday (06-15), Tuesday (06-16), and Wednesday (06-17) → should alert.
   const shifts4: Shift[] = [
     {
       id: 's4_1',
       employee_id: 'emp-1',
       store_id: 'st-1',
-      date: '2026-06-08',
-      start_time: '10:00',
-      end_time: '16:00',
-      break_duration_minutes: 15,
+      date: '2026-06-14',
+      start_time: '12:00',
+      end_time: '20:00',
+      break_duration_minutes: 60,
       allow_overtime: false,
     },
     {
       id: 's4_2',
       employee_id: 'emp-1',
       store_id: 'st-1',
-      date: '2026-06-09',
+      date: '2026-06-15',
       start_time: '10:00',
       end_time: '16:00',
       break_duration_minutes: 15,
@@ -224,7 +226,7 @@ function runTests() {
       id: 's4_3',
       employee_id: 'emp-1',
       store_id: 'st-1',
-      date: '2026-06-10',
+      date: '2026-06-16',
       start_time: '10:00',
       end_time: '16:00',
       break_duration_minutes: 15,
@@ -234,13 +236,14 @@ function runTests() {
       id: 's4_4',
       employee_id: 'emp-1',
       store_id: 'st-1',
-      date: '2026-06-14',
-      start_time: '12:00',
-      end_time: '20:00',
-      break_duration_minutes: 60,
+      date: '2026-06-17',
+      start_time: '10:00',
+      end_time: '16:00',
+      break_duration_minutes: 15,
       allow_overtime: false,
     },
   ];
+
   const alerts4 = runAllValidations(
     mockStores,
     mockEmployees,
@@ -251,9 +254,10 @@ function runTests() {
     (a) =>
       a.type === 'clt' &&
       a.message.includes(
-        'precisa de folga na segunda, terça ou quarta-feira desta semana',
+        'precisa de folga na segunda, terça ou quarta-feira da semana seguinte',
       ),
   );
+
   console.log(
     hasSundayWorkOffAlert
       ? '✅ Teste 4 (Folga Seg/Ter/Qua após Domingo) PASSED'
@@ -362,8 +366,85 @@ function runTests() {
       : '❌ Teste 6 (Domingos Consecutivos Trabalhados) FAILED',
   );
 
+  // Test Case 7: No false positive when an employee rests one Sunday and works
+  // the next (Karine scenario). Rest on 09/08, work on 16/08 → should NOT alert
+  // "rested consecutive Sundays".
+  const shifts7: Shift[] = [
+    {
+      id: 's7_1',
+      employee_id: 'emp-1',
+      store_id: 'st-1',
+      date: '2026-08-09',
+      start_time: '00:00',
+      end_time: '00:00',
+      break_duration_minutes: 0,
+      allow_overtime: false,
+    },
+    {
+      id: 's7_2',
+      employee_id: 'emp-1',
+      store_id: 'st-1',
+      date: '2026-08-16',
+      start_time: '12:00',
+      end_time: '20:00',
+      break_duration_minutes: 60,
+      allow_overtime: false,
+    },
+  ];
+  const alerts7 = runMonthlyValidations(
+    mockStoresMonthly,
+    mockEmployeesMonthly,
+    shifts7,
+    2026,
+    7,
+  );
+  const hasFalseConsecutiveRestAlert = alerts7.some(
+    (a) =>
+      a.type === 'sunday' &&
+      a.message.includes('folgou em domingos consecutivos'),
+  );
+  console.log(
+    !hasFalseConsecutiveRestAlert
+      ? '✅ Teste 7 (Sem Falso Positivo Domingos Consecutivos Off) PASSED'
+      : '❌ Teste 7 (Sem Falso Positivo Domingos Consecutivos Off) FAILED',
+  );
+
+  // Test Case 8: Missing shift on a Sunday should NOT be treated as rest
+  // (prevents false "rested consecutive Sundays" when data is incomplete).
+  const shifts8: Shift[] = [
+    {
+      id: 's8_1',
+      employee_id: 'emp-1',
+      store_id: 'st-1',
+      date: '2026-08-09',
+      start_time: '00:00',
+      end_time: '00:00',
+      break_duration_minutes: 0,
+      allow_overtime: false,
+    },
+    // No shift record for 2026-08-16 (missing data)
+  ];
+  const alerts8 = runMonthlyValidations(
+    mockStoresMonthly,
+    mockEmployeesMonthly,
+    shifts8,
+    2026,
+    7,
+  );
+  const hasMissingShiftRestAlert = alerts8.some(
+    (a) =>
+      a.type === 'sunday' &&
+      a.message.includes('folgou em domingos consecutivos'),
+  );
+  console.log(
+    !hasMissingShiftRestAlert
+      ? '✅ Teste 8 (Turno Ausente Não Conta Como Folga) PASSED'
+      : '❌ Teste 8 (Turno Ausente Não Conta Como Folga) FAILED',
+  );
+
   console.log('=== FIM DOS TESTES ===');
 }
+
 
 // Check if running directly in node environment
 if (typeof require !== 'undefined' && require.main === module) {
