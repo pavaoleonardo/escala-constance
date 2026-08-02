@@ -228,7 +228,6 @@ export function runAllValidations(
         });
       }
 
-
       // D: Inter-journey Rest (Min 11h consecutive rest — CLT hard requirement)
       const allEmpShifts = shifts
         .filter((s) => s.employee_id === employee.id)
@@ -274,12 +273,20 @@ export function runAllValidations(
       const tuesdayDateStr = weekDates[1];
       const wednesdayDateStr = weekDates[2];
 
+      // Skip this check on transition weeks where the Sunday is in the current
+      // month but the Monday/Tuesday/Wednesday fall in the previous month. In
+      // that case the "rest after Sunday" requirement is evaluated against the
+      // previous month's schedule, which produces confusing false positives.
+      const sundayMonth = new Date(sundayDateStr + 'T12:00:00').getMonth();
+      const mondayMonth = new Date(mondayDateStr + 'T12:00:00').getMonth();
+      const isTransitionWeek = sundayMonth !== mondayMonth;
+
       const sundayShift = empShiftsThisWeek.find(
         (s) => s.date === sundayDateStr,
       );
       const isSundayWorked = sundayShift && !isRestShift(sundayShift);
 
-      if (isSundayWorked) {
+      if (isSundayWorked && !isTransitionWeek) {
         const mondayShift = empShiftsThisWeek.find(
           (s) => s.date === mondayDateStr,
         );
@@ -309,7 +316,7 @@ export function runAllValidations(
 
   // NO Sunday rotation alerts — the scheduler handles it automatically
   // NO weekly hours alerts — overtime is calculated and paid, not blocked
- 
+
   return alerts;
 }
 
