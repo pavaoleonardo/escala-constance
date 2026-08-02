@@ -82,7 +82,7 @@ function detectShiftPattern(employeeId: string, existingShifts: Shift[]): number
 }
 
 /** Check if a shift represents a rest day (folga) */
-function isFolgaShift(shift?: Shift | null): boolean {
+function isFolgaShift(shift?: Omit<Shift, 'id'> | Shift | null): boolean {
   if (!shift) return true;
   return (
     (shift.start_time === '00:00' && shift.end_time === '00:00') ||
@@ -90,6 +90,7 @@ function isFolgaShift(shift?: Shift | null): boolean {
     shift.start_time === 'FERIAS'
   );
 }
+
 
 export function generateAISchedule(
   storeId: string,
@@ -142,16 +143,19 @@ export function generateAISchedule(
     shiftPattern.set(emp.id, pattern);
 
     // ── Sunday assignment ─────────────────────────────────────────────────────
-    const prevSunday = new Date(currentWeekStart);
-    prevSunday.setDate(prevSunday.getDate() - 1);
-    const prevSundayStr = formatDateString(prevSunday);
-    const prevSundayShift = existingShifts.find(
-      (s) => s.employee_id === emp.id && s.date === prevSundayStr,
-    );
+    // Look at the employee's MOST RECENT Sunday in the existing data (scanning
+    // backwards, across month boundaries) so the alternation stays globally
+    // consistent. Only if the employee has no Sunday history at all do we fall
+    // back to spreading evenly.
+    const empSundayShifts = existingShifts
+      .filter((s) => s.employee_id === emp.id)
+      .filter((s) => new Date(s.date + 'T12:00:00').getDay() === 0)
+      .filter((s) => s.date < sundayDateStr)
+      .sort((a, b) => b.date.localeCompare(a.date)); // most recent first
 
     let worksThisSunday: boolean;
-    if (prevSundayShift) {
-      const hadOffLastSunday = isFolgaShift(prevSundayShift);
+    if (empSundayShifts.length > 0) {
+      const hadOffLastSunday = isFolgaShift(empSundayShifts[0]);
       worksThisSunday = hadOffLastSunday; // rested last → works this; worked last → rests this
     } else {
       // No history: spread evenly (half work, half rest per Sunday)
@@ -162,9 +166,10 @@ export function generateAISchedule(
     // ── Weekday rest eligibility ──────────────────────────────────────────────
     // CLT: if the employee WORKED the previous Sunday, they are owed Mon/Tue/Wed off.
     // If Sunday was already their rest day this week, no weekday rest is needed.
-    const prevSundayWorked = prevSundayShift
-      ? !isFolgaShift(prevSundayShift)
-      : !worksThisSunday; // no history: if resting this Sunday, assume also worked last Sunday
+    const prevSundayWorked =
+      empSundayShifts.length > 0
+        ? !isFolgaShift(empSundayShifts[0])
+        : !worksThisSunday; // no history: if resting this Sunday, assume also worked last Sunday
 
     if (prevSundayWorked) {
       needsWeekdayRest.push(emp.id);
@@ -283,3 +288,54 @@ export function generateAISchedule(
 
   return generatedShifts;
 }
+
+/**
+ * Self-healing safety net: guarantee no employee works (or rests) two
+ * consecutive Sundays. Runs on the final generated month and flips the second
+ * Sunday of any violating pair so the rotation alternates correctly.
+ */
+export function healSundayRotation(
+  shifts: Omit<Shift, 'id'>[],
+): Omit<Shift, 'id'>[] {
+  const result = shifts.map((s) => ({ ...s }));
+
+  // Group Sunday shifts by employee
+  const sundaysByEmployee = new Map<string, Omit<Shift, 'id'>[]>();
+  result.forEach((s) => {
+    const isSunday = new Date(s.date + 'T12:00:00').getDay() === 0;
+    if (!isSunday) return;
+    const list = sundaysByEmployee.get(s.employee_id) || [];
+    list.push(s);
+    sundaysByEmployee.set(s.employee_id, list);
+  });
+
+  sundaysByEmployee.forEach((sundays) => {
+    // Sort by date ascending
+    sundays.sort((a, b) => a.date.localeCompare(b.date));
+
+    for (let i = 0; i < sundays.length - 1; i++) {
+      const current = sundays[i];
+      const next = sundays[i + 1];
+
+      const currentWorked = !isFolgaShift(current);
+      const nextWorked = !isFolgaShift(next);
+
+      if (currentWorked && nextWorked) {
+        // Two consecutive worked Sundays → flip the second to rest
+        next.start_time = '00:00';
+        next.end_time = '00:00';
+        next.break_duration_minutes = 0;
+        next.allow_overtime = false;
+      } else if (!currentWorked && !nextWorked) {
+        // Two consecutive rested Sundays → flip the second to work (morning)
+        next.start_time = '10:00';
+        next.end_time = '16:00';
+        next.break_duration_minutes = 15;
+        next.allow_overtime = false;
+      }
+    }
+  });
+
+  return result;
+}
+

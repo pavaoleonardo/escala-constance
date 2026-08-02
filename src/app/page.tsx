@@ -26,7 +26,8 @@ import { EmployeeModal } from '../components/EmployeeModal';
 import { WhatsAppModal } from '../components/WhatsAppModal';
 import { StoreModal } from '../components/StoreModal';
 import { AISchedulerModal } from '../components/AISchedulerModal';
-import { generateAISchedule } from '../lib/aiScheduler';
+import { generateAISchedule, healSundayRotation } from '../lib/aiScheduler';
+
 
 // A shift is considered a "rest" (folga) when it has no real working hours.
 const isRestShift = (s: { start_time: string; end_time: string }) =>
@@ -456,8 +457,12 @@ export default function DashboardPage() {
 
       const toDeleteIds = shiftsToDelete.map((s) => s.id);
 
+      // Self-healing safety net: guarantee no employee works (or rests) two
+      // consecutive Sundays before saving.
+      const healedShifts = healSundayRotation(allOptimizedShifts);
+
       // Batch update: delete old ones and insert new ones in one single operation
-      await updateShiftsBatch(toDeleteIds, allOptimizedShifts);
+      await updateShiftsBatch(toDeleteIds, healedShifts);
 
       markChanged();
       await loadData();
