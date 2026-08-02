@@ -267,34 +267,37 @@ export function runAllValidations(
         }
       }
 
-      // E: If employee worked on Sunday, must have Monday, Tuesday, or Wednesday off in the same week
+      // E: If employee worked on Sunday, they must have Monday, Tuesday, or
+      // Wednesday off in the FOLLOWING week (compensatory rest after a worked
+      // Sunday). The scheduler assigns this rest in the week after the Sunday,
+      // so we check the following week's Mon/Tue/Wed — not the same week.
       const sundayDateStr = weekDates[6];
-      const mondayDateStr = weekDates[0];
-      const tuesdayDateStr = weekDates[1];
-      const wednesdayDateStr = weekDates[2];
-
-      // Skip this check on transition weeks where the Sunday is in the current
-      // month but the Monday/Tuesday/Wednesday fall in the previous month. In
-      // that case the "rest after Sunday" requirement is evaluated against the
-      // previous month's schedule, which produces confusing false positives.
-      const sundayMonth = new Date(sundayDateStr + 'T12:00:00').getMonth();
-      const mondayMonth = new Date(mondayDateStr + 'T12:00:00').getMonth();
-      const isTransitionWeek = sundayMonth !== mondayMonth;
 
       const sundayShift = empShiftsThisWeek.find(
         (s) => s.date === sundayDateStr,
       );
       const isSundayWorked = sundayShift && !isRestShift(sundayShift);
 
-      if (isSundayWorked && !isTransitionWeek) {
-        const mondayShift = empShiftsThisWeek.find(
-          (s) => s.date === mondayDateStr,
+      if (isSundayWorked) {
+        // Following week's Monday/Tuesday/Wednesday
+        const nextMonday = new Date(currentWeekStart);
+        nextMonday.setDate(nextMonday.getDate() + 7);
+        const nextMondayStr = formatDateString(nextMonday);
+        const nextTuesdayStr = formatDateString(
+          new Date(nextMonday.getTime() + 86400000),
         );
-        const tuesdayShift = empShiftsThisWeek.find(
-          (s) => s.date === tuesdayDateStr,
+        const nextWednesdayStr = formatDateString(
+          new Date(nextMonday.getTime() + 2 * 86400000),
         );
-        const wednesdayShift = empShiftsThisWeek.find(
-          (s) => s.date === wednesdayDateStr,
+
+        const mondayShift = uniqueShifts.find(
+          (s) => s.employee_id === employee.id && s.date === nextMondayStr,
+        );
+        const tuesdayShift = uniqueShifts.find(
+          (s) => s.employee_id === employee.id && s.date === nextTuesdayStr,
+        );
+        const wednesdayShift = uniqueShifts.find(
+          (s) => s.employee_id === employee.id && s.date === nextWednesdayStr,
         );
 
         const isMondayOff = isRestShift(mondayShift);
@@ -304,7 +307,7 @@ export function runAllValidations(
         if (!isMondayOff && !isTuesdayOff && !isWednesdayOff) {
           alerts.push({
             type: 'clt',
-            message: `⚠️ <strong>${employee.name}</strong> trabalhou no domingo (${formatToDayMonth(sundayDateStr)}) e precisa de folga na segunda, terça ou quarta-feira desta semana.`,
+            message: `⚠️ <strong>${employee.name}</strong> trabalhou no domingo (${formatToDayMonth(sundayDateStr)}) e precisa de folga na segunda, terça ou quarta-feira da semana seguinte.`,
             employeeId: employee.id,
             date: sundayDateStr,
           });
