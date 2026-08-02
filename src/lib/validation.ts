@@ -208,12 +208,26 @@ export function runAllValidations(
 
       // C: Weekly Rest (DSR) — at least 1 day off per 7-day week (cannot be bought)
       if (daysWorkedSet.size === 7) {
+        // Detect if this is a transition week (spans two months, e.g. the first
+        // week of July includes the last days of June). In that case, clarify in
+        // the alert so the user isn't confused by the partial week.
+        const mondayMonth = new Date(currentWeekStart + 'T12:00:00').getMonth();
+        const spansTwoMonths = weekDates.some((d) => {
+          const m = new Date(d + 'T12:00:00').getMonth();
+          return m !== mondayMonth;
+        });
+
+        const transitionNote = spansTwoMonths
+          ? ' (Semana de transição: inclui dias do mês anterior.)'
+          : '';
+
         alerts.push({
           type: 'clt',
-          message: `⚠️ <strong>${employee.name}</strong> não tem Descanso Semanal Remunerado (DSR). É obrigatório pelo menos 1 dia de folga por semana.`,
+          message: `⚠️ <strong>${employee.name}</strong> não tem Descanso Semanal Remunerado (DSR). É obrigatório pelo menos 1 dia de folga por semana.${transitionNote}`,
           employeeId: employee.id,
         });
       }
+
 
       // D: Inter-journey Rest (Min 11h consecutive rest — CLT hard requirement)
       const allEmpShifts = shifts
