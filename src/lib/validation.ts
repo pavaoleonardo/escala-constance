@@ -155,111 +155,144 @@ export function runAllValidations(
   const weekDates = getActiveWeekDates(currentWeekStart);
 
   // --- EMPLOYEE-SPECIFIC CHECKS (only critical CLT violations) ---
-  employees.filter(emp => emp.active).forEach(employee => {
-    const empShiftsThisWeek = uniqueShifts.filter(
-      s => s.employee_id === employee.id && weekDates.includes(s.date)
-    );
+  employees
+    .filter((emp) => emp.active)
+    .forEach((employee) => {
+      const empShiftsThisWeek = uniqueShifts.filter(
+        (s) => s.employee_id === employee.id && weekDates.includes(s.date),
+      );
 
-    const daysWorkedSet = new Set<string>();
+      const daysWorkedSet = new Set<string>();
 
-    empShiftsThisWeek.forEach(shift => {
-      const isFolga = isRestShift(shift);
-      if (isFolga) return;
+      empShiftsThisWeek.forEach((shift) => {
+        const isFolga = isRestShift(shift);
+        if (isFolga) return;
 
-      const hrs = getShiftDuration(shift.start_time, shift.end_time, shift.break_duration_minutes);
-      daysWorkedSet.add(shift.date);
+        const hrs = getShiftDuration(
+          shift.start_time,
+          shift.end_time,
+          shift.break_duration_minutes,
+        );
+        daysWorkedSet.add(shift.date);
 
-      // A: Daily limits (Max 10h even with overtime — CLT hard limit)
-      if (hrs > 10) {
+        // A: Daily limits (Max 10h even with overtime — CLT hard limit)
+        if (hrs > 10) {
+          alerts.push({
+            type: 'clt',
+            message: `⚠️ <strong>${employee.name}</strong> excede 10h diárias em ${formatToDayMonth(shift.date)} (${hrs.toFixed(1)}h). Limite máximo CLT: 10h.`,
+            employeeId: employee.id,
+            date: shift.date,
+          });
+        }
+
+        // B: Break compliance (mandatory by CLT — cannot be overridden by pay)
+        const elapsed = getShiftElapsed(shift.start_time, shift.end_time);
+        const isSunday = new Date(shift.date + 'T12:00:00').getDay() === 0;
+        const minRequiredBreak = isSunday
+          ? 15
+          : elapsed > 6
+            ? 60
+            : elapsed >= 4
+              ? 15
+              : 0;
+
+        if (shift.break_duration_minutes < minRequiredBreak) {
+          alerts.push({
+            type: 'clt',
+            message: `⚠️ <strong>${employee.name}</strong> precisa de intervalo mínimo de ${minRequiredBreak}min em ${formatToDayMonth(shift.date)} (jornada de ${elapsed.toFixed(1)}h, intervalo atual: ${shift.break_duration_minutes}min).`,
+            employeeId: employee.id,
+            date: shift.date,
+          });
+        }
+      });
+
+      // C: Weekly Rest (DSR) — at least 1 day off per 7-day week (cannot be bought)
+      if (daysWorkedSet.size === 7) {
         alerts.push({
           type: 'clt',
-          message: `⚠️ <strong>${employee.name}</strong> excede 10h diárias em ${formatToDayMonth(shift.date)} (${hrs.toFixed(1)}h). Limite máximo CLT: 10h.`,
+          message: `⚠️ <strong>${employee.name}</strong> não tem Descanso Semanal Remunerado (DSR). É obrigatório pelo menos 1 dia de folga por semana.`,
           employeeId: employee.id,
-          date: shift.date
         });
       }
 
-      // B: Break compliance (mandatory by CLT — cannot be overridden by pay)
-      const elapsed = getShiftElapsed(shift.start_time, shift.end_time);
-      const isSunday = new Date(shift.date + 'T12:00:00').getDay() === 0;
-      const minRequiredBreak = isSunday ? 15 : (elapsed > 6 ? 60 : (elapsed >= 4 ? 15 : 0));
+      // D: Inter-journey Rest (Min 11h consecutive rest — CLT hard requirement)
+      const allEmpShifts = shifts
+        .filter((s) => s.employee_id === employee.id)
+        .filter((s) => !isRestShift(s))
+        .sort(
+          (a, b) =>
+            new Date(a.date + 'T' + a.start_time).getTime() -
+            new Date(b.date + 'T' + b.start_time).getTime(),
+        );
 
-      if (shift.break_duration_minutes < minRequiredBreak) {
-        alerts.push({
-          type: 'clt',
-          message: `⚠️ <strong>${employee.name}</strong> precisa de intervalo mínimo de ${minRequiredBreak}min em ${formatToDayMonth(shift.date)} (jornada de ${elapsed.toFixed(1)}h, intervalo atual: ${shift.break_duration_minutes}min).`,
-          employeeId: employee.id,
-          date: shift.date
-        });
+      for (let i = 0; i < allEmpShifts.length - 1; i++) {
+        const shift1 = allEmpShifts[i];
+        const shift2 = allEmpShifts[i + 1];
+
+        const s1End = new Date(shift1.date + 'T' + shift1.end_time);
+        if (
+          parseTimeToDecimal(shift1.end_time) <
+          parseTimeToDecimal(shift1.start_time)
+        ) {
+          s1End.setDate(s1End.getDate() + 1);
+        }
+
+        const s2Start = new Date(shift2.date + 'T' + shift2.start_time);
+        const restHours =
+          (s2Start.getTime() - s1End.getTime()) / (1000 * 60 * 60);
+
+        const isShiftInActiveWeek =
+          weekDates.includes(shift1.date) || weekDates.includes(shift2.date);
+
+        if (restHours < 11 && restHours >= 0 && isShiftInActiveWeek) {
+          alerts.push({
+            type: 'clt',
+            message: `⚠️ <strong>${employee.name}</strong> tem descanso interjornada de apenas ${restHours.toFixed(1)}h entre ${formatToDayMonth(shift1.date)} e ${formatToDayMonth(shift2.date)} (mínimo CLT: 11h).`,
+            employeeId: employee.id,
+            date: shift2.date,
+          });
+        }
+      }
+
+      // E: If employee worked on Sunday, must have Monday, Tuesday, or Wednesday off in the same week
+      const sundayDateStr = weekDates[6];
+      const mondayDateStr = weekDates[0];
+      const tuesdayDateStr = weekDates[1];
+      const wednesdayDateStr = weekDates[2];
+
+      const sundayShift = empShiftsThisWeek.find(
+        (s) => s.date === sundayDateStr,
+      );
+      const isSundayWorked = sundayShift && !isRestShift(sundayShift);
+
+      if (isSundayWorked) {
+        const mondayShift = empShiftsThisWeek.find(
+          (s) => s.date === mondayDateStr,
+        );
+        const tuesdayShift = empShiftsThisWeek.find(
+          (s) => s.date === tuesdayDateStr,
+        );
+        const wednesdayShift = empShiftsThisWeek.find(
+          (s) => s.date === wednesdayDateStr,
+        );
+
+        const isMondayOff = isRestShift(mondayShift);
+        const isTuesdayOff = isRestShift(tuesdayShift);
+        const isWednesdayOff = isRestShift(wednesdayShift);
+
+        if (!isMondayOff && !isTuesdayOff && !isWednesdayOff) {
+          alerts.push({
+            type: 'clt',
+            message: `⚠️ <strong>${employee.name}</strong> trabalhou no domingo (${formatToDayMonth(sundayDateStr)}) e precisa de folga na segunda, terça ou quarta-feira desta semana.`,
+            employeeId: employee.id,
+            date: sundayDateStr,
+          });
+        }
       }
     });
 
-    // C: Weekly Rest (DSR) — at least 1 day off per 7-day week (cannot be bought)
-    if (daysWorkedSet.size === 7) {
-      alerts.push({
-        type: 'clt',
-        message: `⚠️ <strong>${employee.name}</strong> não tem Descanso Semanal Remunerado (DSR). É obrigatório pelo menos 1 dia de folga por semana.`,
-        employeeId: employee.id
-      });
-    }
-
-    // D: Inter-journey Rest (Min 11h consecutive rest — CLT hard requirement)
-    const allEmpShifts = shifts
-      .filter(s => s.employee_id === employee.id)
-      .filter(s => !isRestShift(s))
-      .sort((a, b) => new Date(a.date + 'T' + a.start_time).getTime() - new Date(b.date + 'T' + b.start_time).getTime());
-      
-    for (let i = 0; i < allEmpShifts.length - 1; i++) {
-      const shift1 = allEmpShifts[i];
-      const shift2 = allEmpShifts[i + 1];
-      
-      const s1End = new Date(shift1.date + 'T' + shift1.end_time);
-      if (parseTimeToDecimal(shift1.end_time) < parseTimeToDecimal(shift1.start_time)) {
-        s1End.setDate(s1End.getDate() + 1);
-      }
-      
-      const s2Start = new Date(shift2.date + 'T' + shift2.start_time);
-      const restHours = (s2Start.getTime() - s1End.getTime()) / (1000 * 60 * 60);
-      
-      const isShiftInActiveWeek = weekDates.includes(shift1.date) || weekDates.includes(shift2.date);
-      
-      if (restHours < 11 && restHours >= 0 && isShiftInActiveWeek) {
-        alerts.push({
-          type: 'clt',
-          message: `⚠️ <strong>${employee.name}</strong> tem descanso interjornada de apenas ${restHours.toFixed(1)}h entre ${formatToDayMonth(shift1.date)} e ${formatToDayMonth(shift2.date)} (mínimo CLT: 11h).`,
-          employeeId: employee.id,
-          date: shift2.date
-        });
-      }
-    }
-
-    // E: If employee worked on Sunday, must have Monday or Tuesday off in the same week
-    const sundayDateStr = weekDates[6];
-    const mondayDateStr = weekDates[0];
-    const tuesdayDateStr = weekDates[1];
-
-    const sundayShift = empShiftsThisWeek.find(s => s.date === sundayDateStr);
-    const isSundayWorked = sundayShift && !isRestShift(sundayShift);
-
-    if (isSundayWorked) {
-      const mondayShift = empShiftsThisWeek.find(s => s.date === mondayDateStr);
-      const tuesdayShift = empShiftsThisWeek.find(s => s.date === tuesdayDateStr);
-
-      const isMondayOff = isRestShift(mondayShift);
-      const isTuesdayOff = isRestShift(tuesdayShift);
-
-      if (!isMondayOff && !isTuesdayOff) {
-        alerts.push({
-          type: 'clt',
-          message: `⚠️ <strong>${employee.name}</strong> trabalhou no domingo (${formatToDayMonth(sundayDateStr)}) e precisa de folga na segunda ou terça-feira desta semana.`,
-          employeeId: employee.id,
-          date: sundayDateStr
-        });
-      }
-    }
-  });
-
   // NO coverage checks — employees can work without a supervisora
+
   // NO Sunday rotation alerts — the scheduler handles it automatically
   // NO weekly hours alerts — overtime is calculated and paid, not blocked
  

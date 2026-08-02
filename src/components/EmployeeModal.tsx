@@ -28,6 +28,8 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
   const [weeklyHours, setWeeklyHours] = useState<number>(44);
   const [active, setActive] = useState<boolean>(true);
   const [defaultShift, setDefaultShift] = useState<string>('morning');
+  const [fixedRestDays, setFixedRestDays] = useState<number[]>([]);
+
 
   const [hasVacationRange, setHasVacationRange] = useState<boolean>(false);
   const [vacationStart, setVacationStart] = useState<string>('');
@@ -56,6 +58,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     setWeeklyHours(emp.weekly_hours_contract);
     setActive(emp.active);
     setDefaultShift(emp.default_shift || 'morning');
+    setFixedRestDays(emp.fixed_rest_days || []);
     setHasVacationRange(false);
     setVacationStart('');
     setVacationEnd('');
@@ -72,11 +75,13 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     setWeeklyHours(44);
     setActive(true);
     setDefaultShift('morning');
+    setFixedRestDays([]);
     setHasVacationRange(false);
     setVacationStart('');
     setVacationEnd('');
     setActiveTab('form');
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +102,9 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
       weekly_hours_contract: weeklyHours,
       active,
       default_shift: defaultShift,
+      fixed_rest_days: fixedRestDays,
     });
+
 
     // Use the confirmed id returned by onSave (important for new employees and UUID migration)
     const confirmedId = savedResult?.id || empId;
@@ -118,25 +125,25 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop active">
-      <div className="modal-content card modal-lg">
-        <div className="modal-header">
+    <div className='modal-backdrop active'>
+      <div className='modal-content card modal-lg'>
+        <div className='modal-header'>
           <h2>Gerenciamento de Funcionários</h2>
-          <button className="modal-close" onClick={onClose} type="button">
+          <button className='modal-close' onClick={onClose} type='button'>
             &times;
           </button>
         </div>
-        <div className="modal-body">
-          <div className="employee-tabs">
+        <div className='modal-body'>
+          <div className='employee-tabs'>
             <button
-              type="button"
+              type='button'
               className={`tab-button ${activeTab === 'list' ? 'active' : ''}`}
               onClick={() => setActiveTab('list')}
             >
               Lista de Funcionários
             </button>
             <button
-              type="button"
+              type='button'
               className={`tab-button ${activeTab === 'form' ? 'active' : ''}`}
               onClick={handleNewClick}
             >
@@ -145,8 +152,8 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
           </div>
 
           {activeTab === 'list' ? (
-            <div className="table-responsive">
-              <table className="admin-table">
+            <div className='table-responsive'>
+              <table className='admin-table'>
                 <thead>
                   <tr>
                     <th>Nome</th>
@@ -159,15 +166,20 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map(emp => {
-                    const store = stores.find(s => s.id === emp.home_store_id);
-                    const storeName = store ? store.name.replace('Constance ', '') : 'Indefinido';
+                  {employees.map((emp) => {
+                    const store = stores.find(
+                      (s) => s.id === emp.home_store_id,
+                    );
+                    const storeName = store
+                      ? store.name.replace('Constance ', '')
+                      : 'Indefinido';
                     const shiftLabels: Record<string, string> = {
                       morning: 'Manhã',
                       intermediate: 'Intermediário',
-                      evening: 'Noite'
+                      evening: 'Noite',
                     };
-                    const shiftText = shiftLabels[emp.default_shift || 'morning'] || 'Manhã';
+                    const shiftText =
+                      shiftLabels[emp.default_shift || 'morning'] || 'Manhã';
 
                     return (
                       <tr key={emp.id}>
@@ -176,7 +188,15 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                         </td>
                         <td>{emp.role}</td>
                         <td>
-                          <span className="badge badge-info" style={{ backgroundColor: 'rgba(175, 143, 86, 0.1)', color: 'var(--color-gold-text)', border: '1px solid rgba(175, 143, 86, 0.2)', fontSize: '0.75rem' }}>
+                          <span
+                            className='badge badge-info'
+                            style={{
+                              backgroundColor: 'rgba(175, 143, 86, 0.1)',
+                              color: 'var(--color-gold-text)',
+                              border: '1px solid rgba(175, 143, 86, 0.2)',
+                              fontSize: '0.75rem',
+                            }}
+                          >
                             {shiftText}
                           </span>
                         </td>
@@ -184,15 +204,15 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                         <td>{emp.weekly_hours_contract}h</td>
                         <td>
                           {emp.active ? (
-                            <span className="badge badge-success">Ativo</span>
+                            <span className='badge badge-success'>Ativo</span>
                           ) : (
-                            <span className="badge badge-danger">Inativo</span>
+                            <span className='badge badge-danger'>Inativo</span>
                           )}
                         </td>
                         <td>
                           <button
-                            type="button"
-                            className="btn-text-action"
+                            type='button'
+                            className='btn-text-action'
                             onClick={() => handleEditClick(emp)}
                           >
                             Editar
@@ -206,61 +226,67 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="emp-name">Nome Completo</label>
+              <div className='form-row'>
+                <div className='form-group'>
+                  <label htmlFor='emp-name'>Nome Completo</label>
                   <input
-                    type="text"
-                    id="emp-name"
+                    type='text'
+                    id='emp-name'
                     value={name}
-                    onChange={e => setName(e.target.value)}
+                    onChange={(e) => setName(e.target.value)}
                     required
-                    placeholder="Ex: Maria Oliveira"
+                    placeholder='Ex: Maria Oliveira'
                   />
                 </div>
-                <div className="form-group">
-                  <label htmlFor="emp-role">Cargo</label>
+                <div className='form-group'>
+                  <label htmlFor='emp-role'>Cargo</label>
                   <input
-                    type="text"
-                    id="emp-role"
-                    list="role-suggestions"
+                    type='text'
+                    id='emp-role'
+                    list='role-suggestions'
                     value={role}
-                    onChange={e => setRole(e.target.value)}
+                    onChange={(e) => setRole(e.target.value)}
                     required
-                    placeholder="Ex: Vendedora"
+                    placeholder='Ex: Vendedora'
                   />
-                  <datalist id="role-suggestions">
-                    {roleSuggestions.map(r => (
+                  <datalist id='role-suggestions'>
+                    {roleSuggestions.map((r) => (
                       <option key={r} value={r} />
                     ))}
                   </datalist>
-                  <span className="input-tip">Digite livremente ou escolha uma sugestão.</span>
+                  <span className='input-tip'>
+                    Digite livremente ou escolha uma sugestão.
+                  </span>
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="emp-store">Loja Sede</label>
+              <div className='form-row'>
+                <div className='form-group'>
+                  <label htmlFor='emp-store'>Loja Sede</label>
                   <select
-                    id="emp-store"
+                    id='emp-store'
                     value={homeStoreId}
-                    onChange={e => setHomeStoreId(e.target.value)}
+                    onChange={(e) => setHomeStoreId(e.target.value)}
                     required
                   >
-                    {stores.map(st => (
+                    {stores.map((st) => (
                       <option key={st.id} value={st.id}>
                         {st.name}
                       </option>
                     ))}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="emp-hours">Carga Horária Semanal Contratual (h)</label>
+                <div className='form-group'>
+                  <label htmlFor='emp-hours'>
+                    Carga Horária Semanal Contratual (h)
+                  </label>
                   <input
-                    type="number"
-                    id="emp-hours"
+                    type='number'
+                    id='emp-hours'
                     value={weeklyHours}
-                    onChange={e => setWeeklyHours(parseInt(e.target.value) || 44)}
+                    onChange={(e) =>
+                      setWeeklyHours(parseInt(e.target.value) || 44)
+                    }
                     min={1}
                     max={44}
                     required
@@ -268,71 +294,155 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="emp-shift">Turno Padrão</label>
+              <div className='form-row'>
+                <div className='form-group'>
+                  <label htmlFor='emp-shift'>Turno Padrão</label>
                   <select
-                    id="emp-shift"
+                    id='emp-shift'
                     value={defaultShift}
-                    onChange={e => setDefaultShift(e.target.value)}
+                    onChange={(e) => setDefaultShift(e.target.value)}
                     required
                   >
-                    <option value="morning">Manhã (10:00 - 16:00)</option>
-                    <option value="intermediate">Intermediário (14:00 - 20:00)</option>
-                    <option value="evening">Noite (16:00 - 22:00)</option>
+                    <option value='morning'>Manhã (10:00 - 16:00)</option>
+                    <option value='intermediate'>
+                      Intermediário (14:00 - 20:00)
+                    </option>
+                    <option value='evening'>Noite (16:00 - 22:00)</option>
                   </select>
-                  <span className="input-tip">O planejador IA escalará este funcionário neste turno por padrão.</span>
+                  <span className='input-tip'>
+                    O planejador IA escalará este funcionário neste turno por
+                    padrão.
+                  </span>
                 </div>
-                <div className="form-group" style={{ visibility: 'hidden' }}>
+                <div className='form-group' style={{ visibility: 'hidden' }}>
                   <label>&nbsp;</label>
                 </div>
               </div>
 
-              <div className="form-group checkbox-group">
-                <label className="checkbox-container">
+              <div className='form-group checkbox-group'>
+                <label className='checkbox-container'>
                   <input
-                    type="checkbox"
-                    id="emp-active"
+                    type='checkbox'
+                    id='emp-active'
                     checked={active}
-                    onChange={e => setActive(e.target.checked)}
+                    onChange={(e) => setActive(e.target.checked)}
                   />
-                  <span className="checkmark"></span>
+                  <span className='checkmark'></span>
                   Funcionário Ativo (Apenas ativos aparecem na escala semanal)
                 </label>
               </div>
 
+              <div
+                style={{
+                  marginTop: '1.5rem',
+                  borderTop: '1px solid var(--border-color)',
+                  paddingTop: '1rem',
+                  marginBottom: '1.5rem',
+                }}
+              >
+                <label
+                  style={{
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    color: 'var(--text-primary)',
+                    display: 'block',
+                    marginBottom: '0.5rem',
+                  }}
+                >
+                  Dias Fixos de Folga (nunca trabalha nestes dias)
+                </label>
+                <div
+                  className='form-row'
+                  style={{ gap: '0.5rem', flexWrap: 'wrap' }}
+                >
+                  {[
+                    { idx: 0, label: 'Segunda' },
+                    { idx: 1, label: 'Terça' },
+                    { idx: 2, label: 'Quarta' },
+                    { idx: 3, label: 'Quinta' },
+                    { idx: 4, label: 'Sexta' },
+                    { idx: 5, label: 'Sábado' },
+                    { idx: 6, label: 'Domingo' },
+                  ].map((day) => (
+                    <label
+                      key={day.idx}
+                      className='checkbox-container'
+                      style={{ marginRight: '0.75rem', fontSize: '0.85rem' }}
+                    >
+                      <input
+                        type='checkbox'
+                        checked={fixedRestDays.includes(day.idx)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFixedRestDays((prev) =>
+                              [...prev, day.idx].sort((a, b) => a - b),
+                            );
+                          } else {
+                            setFixedRestDays((prev) =>
+                              prev.filter((d) => d !== day.idx),
+                            );
+                          }
+                        }}
+                      />
+                      <span className='checkmark'></span>
+                      {day.label}
+                    </label>
+                  ))}
+                </div>
+                <span className='input-tip'>
+                  O planejador IA nunca escalará este funcionário nos dias
+                  selecionados.
+                </span>
+              </div>
+
               {empId && (
-                <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginBottom: '1.5rem' }}>
-                  <label className="checkbox-container" style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                <div
+                  style={{
+                    marginTop: '1.5rem',
+                    borderTop: '1px solid var(--border-color)',
+                    paddingTop: '1rem',
+                    marginBottom: '1.5rem',
+                  }}
+                >
+                  <label
+                    className='checkbox-container'
+                    style={{
+                      fontWeight: 600,
+                      fontSize: '0.9rem',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
                     <input
-                      type="checkbox"
-                      id="emp-has-vacation"
+                      type='checkbox'
+                      id='emp-has-vacation'
                       checked={hasVacationRange}
-                      onChange={e => setHasVacationRange(e.target.checked)}
+                      onChange={(e) => setHasVacationRange(e.target.checked)}
                     />
-                    <span className="checkmark"></span>
+                    <span className='checkmark'></span>
                     Agendar Período de Férias (Férias)
                   </label>
 
                   {hasVacationRange && (
-                    <div className="form-row" style={{ marginTop: '1rem' }}>
-                      <div className="form-group">
-                        <label htmlFor="vacation-start">Início das Férias</label>
+                    <div className='form-row' style={{ marginTop: '1rem' }}>
+                      <div className='form-group'>
+                        <label htmlFor='vacation-start'>
+                          Início das Férias
+                        </label>
                         <input
-                          type="date"
-                          id="vacation-start"
+                          type='date'
+                          id='vacation-start'
                           value={vacationStart}
-                          onChange={e => setVacationStart(e.target.value)}
+                          onChange={(e) => setVacationStart(e.target.value)}
                           required={hasVacationRange}
                         />
                       </div>
-                      <div className="form-group">
-                        <label htmlFor="vacation-end">Fim das Férias</label>
+                      <div className='form-group'>
+                        <label htmlFor='vacation-end'>Fim das Férias</label>
                         <input
-                          type="date"
-                          id="vacation-end"
+                          type='date'
+                          id='vacation-end'
                           value={vacationEnd}
-                          onChange={e => setVacationEnd(e.target.value)}
+                          onChange={(e) => setVacationEnd(e.target.value)}
                           required={hasVacationRange}
                         />
                       </div>
@@ -341,10 +451,10 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 </div>
               )}
 
-              <div className="modal-footer">
+              <div className='modal-footer'>
                 <button
-                  type="button"
-                  className="btn btn-secondary"
+                  type='button'
+                  className='btn btn-secondary'
                   onClick={() => setActiveTab('list')}
                   disabled={vacationLoading}
                 >
@@ -352,8 +462,8 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 </button>
                 {empId && (
                   <button
-                    type="button"
-                    className="btn btn-danger-outline"
+                    type='button'
+                    className='btn btn-danger-outline'
                     onClick={async () => {
                       const success = await onDelete(empId);
                       if (success !== false) {
@@ -365,7 +475,11 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                     Excluir
                   </button>
                 )}
-                <button type="submit" className="btn btn-primary" disabled={vacationLoading}>
+                <button
+                  type='submit'
+                  className='btn btn-primary'
+                  disabled={vacationLoading}
+                >
                   {vacationLoading ? 'Processando...' : 'Salvar Funcionário'}
                 </button>
               </div>

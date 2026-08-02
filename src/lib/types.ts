@@ -15,7 +15,9 @@ export interface Employee {
   weekly_hours_contract: number;
   active: boolean;
   default_shift?: string; // 'morning' | 'intermediate' | 'evening'
+  fixed_rest_days?: number[]; // 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun — days this employee never works
 }
+
 
 export interface Shift {
   id: string;
