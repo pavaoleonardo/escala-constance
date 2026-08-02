@@ -28,12 +28,16 @@ import { StoreModal } from '../components/StoreModal';
 import { AISchedulerModal } from '../components/AISchedulerModal';
 import { generateAISchedule } from '../lib/aiScheduler';
 
+// A shift is considered a "rest" (folga) when it has no real working hours.
+const isRestShift = (s: { start_time: string; end_time: string }) =>
+  s.start_time === '00:00' && s.end_time === '00:00';
+
 export default function DashboardPage() {
   // --- Core States ---
   const [stores, setStores] = useState<Store[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  
+
   const [currentMonthStart, setCurrentMonthStart] = useState<Date>(() => {
     // Standardize default active month to July 1st, 2026
     return new Date('2026-07-01T12:00:00');
@@ -52,7 +56,10 @@ export default function DashboardPage() {
   });
 
   const handleChangeFranchiseName = () => {
-    const newName = prompt('Digite o nome da franquia ou empresa:', franchiseName);
+    const newName = prompt(
+      'Digite o nome da franquia ou empresa:',
+      franchiseName,
+    );
     if (newName !== null) {
       const trimmed = newName.trim();
       setFranchiseName(trimmed);
@@ -86,8 +93,10 @@ export default function DashboardPage() {
 
   // --- Modal Visibility Toggles ---
   const [isShiftModalOpen, setIsShiftModalOpen] = useState<boolean>(false);
-  const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState<boolean>(false);
-  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
+  const [isEmployeeModalOpen, setIsEmployeeModalOpen] =
+    useState<boolean>(false);
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] =
+    useState<boolean>(false);
   const [isStoreModalOpen, setIsStoreModalOpen] = useState<boolean>(false);
   const [isAISchedulerOpen, setIsAISchedulerOpen] = useState<boolean>(false);
 
@@ -95,7 +104,9 @@ export default function DashboardPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-  const [selectedShift, setSelectedShift] = useState<Shift | undefined>(undefined);
+  const [selectedShift, setSelectedShift] = useState<Shift | undefined>(
+    undefined,
+  );
 
   // --- Data Loading Functions ---
   const loadData = useCallback(async () => {
@@ -136,19 +147,109 @@ export default function DashboardPage() {
   // Recalculate validation alerts when shifts, employees or month changes
   useEffect(() => {
     if (stores.length > 0) {
-      const activeAlerts = runMonthlyValidations(stores, employees, shifts, activeYear, activeMonthIndex);
+      const activeAlerts = runMonthlyValidations(
+        stores,
+        employees,
+        shifts,
+        activeYear,
+        activeMonthIndex,
+      );
       setAlerts(activeAlerts);
     }
   }, [stores, employees, shifts, activeYear, activeMonthIndex]);
 
   // --- Modal Form Actions ---
-  const handleSaveShift = async (shift: Omit<Shift, 'id'> & { id?: string }) => {
+  const handleSaveShift = async (
+    shift: Omit<Shift, 'id'> & { id?: string },
+  ) => {
     try {
       await saveShift(shift);
       markChanged();
+
+      // Cascade Sunday rotation: when a Sunday is manually changed, the
+      // subsequent Sundays in the month alternate automatically (work→rest→work→rest).
+      const editedDate = new Date(shift.date + 'T12:00:00');
+      if (editedDate.getDay() === 0) {
+        await cascadeSundayRotation(shift);
+      }
+
       await loadData();
     } catch (err) {
       alert('Erro ao salvar turno: ' + err);
+    }
+  };
+
+  // When a Sunday shift is manually edited, cascade the alternation to the
+  // remaining Sundays of the month for that employee.
+  const cascadeSundayRotation = async (
+    editedShift: Omit<Shift, 'id'> & { id?: string },
+  ) => {
+    const isRest = isRestShift(editedShift);
+
+    const editedDate = new Date(editedShift.date + 'T12:00:00');
+    const year = editedDate.getFullYear();
+    const month = editedDate.getMonth();
+    const weeks = getMonthlyWeeks(year, month);
+    const sundays = weeks
+      .map((w) => w[6])
+      .filter((d): d is string => d !== null);
+
+    const editedIdx = sundays.indexOf(editedShift.date);
+    if (editedIdx === -1) return;
+
+    const toSave: Omit<Shift, 'id'>[] = [];
+    const toDeleteIds: string[] = [];
+
+    // If the edited Sunday is now work, the next is rest; if rest, the next is work.
+    let nextIsRest = !isRest;
+
+    for (let i = editedIdx + 1; i < sundays.length; i++) {
+      const sunDate = sundays[i];
+      const existing = shifts.find(
+        (s) => s.employee_id === editedShift.employee_id && s.date === sunDate,
+      );
+
+      // Skip férias Sundays — do not override vacation, but keep alternating after.
+      if (existing?.start_time === 'FERIAS') {
+        nextIsRest = !nextIsRest;
+        continue;
+      }
+
+      if (existing) {
+        toDeleteIds.push(existing.id);
+      }
+
+      if (nextIsRest) {
+        toSave.push({
+          employee_id: editedShift.employee_id,
+          store_id: editedShift.store_id,
+          date: sunDate,
+          start_time: '00:00',
+          end_time: '00:00',
+          break_duration_minutes: 0,
+          allow_overtime: false,
+        });
+      } else {
+        // Work Sunday — reuse the edited shift's times (or the existing work shift).
+        const workShift =
+          existing && !isRestShift(existing) ? existing : editedShift;
+        toSave.push({
+          employee_id: editedShift.employee_id,
+          store_id: editedShift.store_id,
+          date: sunDate,
+          start_time: workShift.start_time,
+          end_time: workShift.end_time,
+          break_duration_minutes: workShift.break_duration_minutes,
+          allow_overtime: workShift.allow_overtime,
+        });
+      }
+
+      nextIsRest = !nextIsRest;
+    }
+
+    if (toSave.length > 0 || toDeleteIds.length > 0) {
+      await updateShiftsBatch(toDeleteIds, toSave);
+      markChanged();
     }
   };
 
@@ -162,7 +263,9 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSaveEmployee = async (employee: Omit<Employee, 'id'> & { id?: string }) => {
+  const handleSaveEmployee = async (
+    employee: Omit<Employee, 'id'> & { id?: string },
+  ) => {
     try {
       const saved = await saveEmployee(employee);
       await loadData();
@@ -173,7 +276,11 @@ export default function DashboardPage() {
   };
 
   const handleDeleteEmployee = async (id: string) => {
-    if (confirm('Deseja realmente excluir este funcionário e remover todos os seus turnos escalados?')) {
+    if (
+      confirm(
+        'Deseja realmente excluir este funcionário e remover todos os seus turnos escalados?',
+      )
+    ) {
       try {
         await deleteEmployee(id);
         markChanged();
@@ -187,7 +294,11 @@ export default function DashboardPage() {
     return false;
   };
 
-  const handleSaveVacation = async (employeeId: string, startDateStr: string, endDateStr: string) => {
+  const handleSaveVacation = async (
+    employeeId: string,
+    startDateStr: string,
+    endDateStr: string,
+  ) => {
     setLoading(true);
     try {
       const dates: string[] = [];
@@ -202,7 +313,7 @@ export default function DashboardPage() {
 
       if (dates.length === 0) return;
 
-      const emp = employees.find(e => e.id === employeeId);
+      const emp = employees.find((e) => e.id === employeeId);
       if (!emp) return;
 
       await saveVacationRange(employeeId, dates, emp.home_store_id);
@@ -216,8 +327,9 @@ export default function DashboardPage() {
     }
   };
 
-
-  const handleSaveStore = async (store: Omit<Store, 'id'> & { id?: string }) => {
+  const handleSaveStore = async (
+    store: Omit<Store, 'id'> & { id?: string },
+  ) => {
     try {
       await saveStore(store);
       await loadData();
@@ -227,7 +339,11 @@ export default function DashboardPage() {
   };
 
   const handleDeleteStore = async (id: string) => {
-    if (confirm('Atenção: Excluir esta loja apagará permanentemente todos os turnos e dados vinculados a ela! Deseja continuar?')) {
+    if (
+      confirm(
+        'Atenção: Excluir esta loja apagará permanentemente todos os turnos e dados vinculados a ela! Deseja continuar?',
+      )
+    ) {
       try {
         await deleteStore(id);
         markChanged();
@@ -240,14 +356,23 @@ export default function DashboardPage() {
   };
 
   // Generate AI Schedule handler for calendar months
-  const handleGenerateAISchedule = async (storeId: string, period: 'week' | 'month' = 'week') => {
+  const handleGenerateAISchedule = async (
+    storeId: string,
+    period: 'week' | 'month' = 'week',
+  ) => {
     try {
-      const targetYear = period === 'month'
-        ? (activeMonthIndex === 11 ? activeYear + 1 : activeYear)
-        : activeYear;
-      const targetMonth = period === 'month'
-        ? (activeMonthIndex === 11 ? 0 : activeMonthIndex + 1)
-        : activeMonthIndex;
+      const targetYear =
+        period === 'month'
+          ? activeMonthIndex === 11
+            ? activeYear + 1
+            : activeYear
+          : activeYear;
+      const targetMonth =
+        period === 'month'
+          ? activeMonthIndex === 11
+            ? 0
+            : activeMonthIndex + 1
+          : activeMonthIndex;
 
       // Find all weeks in the target calendar month (weeks may include prev-month days)
       const targetWeeks = getMonthlyWeeks(targetYear, targetMonth);
@@ -256,9 +381,9 @@ export default function DashboardPage() {
       const targetMonthStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
 
       const processedMondays = new Set<string>();
-      targetWeeks.forEach(week => {
+      targetWeeks.forEach((week) => {
         // Use the first non-null date (could be from prev month for the first week)
-        const firstDate = week.find(d => d !== null);
+        const firstDate = week.find((d) => d !== null);
         if (!firstDate) return;
 
         const monday = getMonday(new Date(firstDate + 'T12:00:00'));
@@ -270,11 +395,14 @@ export default function DashboardPage() {
         // Filter out old shifts of target store employees for dates in target weeks,
         // so that generating multiple times does not let stale shifts override newly generated ones.
         const storeEmployeeIds = employees
-          .filter(e => e.home_store_id === storeId)
-          .map(e => e.id);
-        const allGridDates = targetWeeks.flat().filter((d): d is string => d !== null);
-        const nonDiscardedShifts = shifts.filter(s => {
-          const isStoreShift = s.store_id === storeId || storeEmployeeIds.includes(s.employee_id);
+          .filter((e) => e.home_store_id === storeId)
+          .map((e) => e.id);
+        const allGridDates = targetWeeks
+          .flat()
+          .filter((d): d is string => d !== null);
+        const nonDiscardedShifts = shifts.filter((s) => {
+          const isStoreShift =
+            s.store_id === storeId || storeEmployeeIds.includes(s.employee_id);
           const isInGrid = allGridDates.includes(s.date);
           const isFerias = s.start_time === 'FERIAS';
           return !(isStoreShift && isInGrid && !isFerias);
@@ -282,11 +410,16 @@ export default function DashboardPage() {
 
         const accumulatedShifts = [
           ...nonDiscardedShifts,
-          ...allOptimizedShifts.map((s, idx) => ({ ...s, id: `temp-${idx}` }))
+          ...allOptimizedShifts.map((s, idx) => ({ ...s, id: `temp-${idx}` })),
         ];
 
-        const weekShifts = generateAISchedule(storeId, employees, monday, accumulatedShifts);
-        
+        const weekShifts = generateAISchedule(
+          storeId,
+          employees,
+          monday,
+          accumulatedShifts,
+        );
+
         // Keep ALL 7 days of the first transition week (includes June 29/30 for July)
         // Only for subsequent weeks, filter to the target month
         const isFirstWeek = processedMondays.size === 1;
@@ -295,7 +428,9 @@ export default function DashboardPage() {
           allOptimizedShifts.push(...weekShifts);
         } else {
           // Filter: only keep shifts within the target calendar month
-          const monthShifts = weekShifts.filter(s => s.date.startsWith(targetMonthStr));
+          const monthShifts = weekShifts.filter((s) =>
+            s.date.startsWith(targetMonthStr),
+          );
           allOptimizedShifts.push(...monthShifts);
         }
       });
@@ -303,24 +438,27 @@ export default function DashboardPage() {
       // Delete ALL existing shifts for employees of this store in the target month
       // Also delete the pre-month transition days (e.g. Jun 29/30) for this store
       const storeEmployeeIds = employees
-        .filter(e => e.home_store_id === storeId)
-        .map(e => e.id);
-      
+        .filter((e) => e.home_store_id === storeId)
+        .map((e) => e.id);
+
       // Compute all dates in the grid for deletion scope
-      const allGridDates = targetWeeks.flat().filter((d): d is string => d !== null);
-      
-      const shiftsToDelete = shifts.filter(s => {
-        const isStoreShift = s.store_id === storeId || storeEmployeeIds.includes(s.employee_id);
+      const allGridDates = targetWeeks
+        .flat()
+        .filter((d): d is string => d !== null);
+
+      const shiftsToDelete = shifts.filter((s) => {
+        const isStoreShift =
+          s.store_id === storeId || storeEmployeeIds.includes(s.employee_id);
         const isInGrid = allGridDates.includes(s.date);
         const isFerias = s.start_time === 'FERIAS';
         return isStoreShift && isInGrid && !isFerias;
       });
-      
-      const toDeleteIds = shiftsToDelete.map(s => s.id);
-      
+
+      const toDeleteIds = shiftsToDelete.map((s) => s.id);
+
       // Batch update: delete old ones and insert new ones in one single operation
       await updateShiftsBatch(toDeleteIds, allOptimizedShifts);
-      
+
       markChanged();
       await loadData();
     } catch (err) {
@@ -333,29 +471,38 @@ export default function DashboardPage() {
     sourceEmployeeId: string,
     sourceDate: string,
     targetEmployeeId: string,
-    targetDate: string
+    targetDate: string,
   ) => {
     // Same-week restriction check
-    const week = monthlyWeeks.find(w => w.includes(sourceDate) && w.includes(targetDate));
+    const week = monthlyWeeks.find(
+      (w) => w.includes(sourceDate) && w.includes(targetDate),
+    );
     if (!week) {
-      alert("Movimento não permitido: As trocas de turno são restritas à mesma semana!");
+      alert(
+        'Movimento não permitido: As trocas de turno são restritas à mesma semana!',
+      );
       return;
     }
 
     try {
       const uniqueShifts = getUniqueShifts(shifts);
       const sourceShift = uniqueShifts.find(
-        s => s.employee_id === sourceEmployeeId && s.date === sourceDate
+        (s) => s.employee_id === sourceEmployeeId && s.date === sourceDate,
       );
       const targetShift = uniqueShifts.find(
-        s => s.employee_id === targetEmployeeId && s.date === targetDate
+        (s) => s.employee_id === targetEmployeeId && s.date === targetDate,
       );
 
       if (!sourceShift && !targetShift) return;
 
       const shiftsToInsert: Omit<Shift, 'id'>[] = [];
       const shiftIdsToDelete: string[] = [];
-      const isActive = (s?: Shift) => s && !((s.start_time === '00:00' && s.end_time === '00:00') || !s.start_time);
+      const isActive = (s?: Shift) =>
+        s &&
+        !(
+          (s.start_time === '00:00' && s.end_time === '00:00') ||
+          !s.start_time
+        );
 
       if (sourceEmployeeId === targetEmployeeId) {
         if (sourceShift) shiftIdsToDelete.push(sourceShift.id);
@@ -369,17 +516,21 @@ export default function DashboardPage() {
             start_time: sourceShift!.start_time,
             end_time: sourceShift!.end_time,
             break_duration_minutes: sourceShift!.break_duration_minutes,
-            allow_overtime: sourceShift!.allow_overtime
+            allow_overtime: sourceShift!.allow_overtime,
           });
         } else {
           shiftsToInsert.push({
             employee_id: sourceEmployeeId,
-            store_id: sourceShift ? sourceShift.store_id : (targetShift ? targetShift.store_id : ''),
+            store_id: sourceShift
+              ? sourceShift.store_id
+              : targetShift
+                ? targetShift.store_id
+                : '',
             date: targetDate,
             start_time: '00:00',
             end_time: '00:00',
             break_duration_minutes: 0,
-            allow_overtime: false
+            allow_overtime: false,
           });
         }
 
@@ -391,17 +542,21 @@ export default function DashboardPage() {
             start_time: targetShift!.start_time,
             end_time: targetShift!.end_time,
             break_duration_minutes: targetShift!.break_duration_minutes,
-            allow_overtime: targetShift!.allow_overtime
+            allow_overtime: targetShift!.allow_overtime,
           });
         } else {
           shiftsToInsert.push({
             employee_id: sourceEmployeeId,
-            store_id: targetShift ? targetShift.store_id : (sourceShift ? sourceShift.store_id : ''),
+            store_id: targetShift
+              ? targetShift.store_id
+              : sourceShift
+                ? sourceShift.store_id
+                : '',
             date: sourceDate,
             start_time: '00:00',
             end_time: '00:00',
             break_duration_minutes: 0,
-            allow_overtime: false
+            allow_overtime: false,
           });
         }
       } else {
@@ -416,17 +571,21 @@ export default function DashboardPage() {
             start_time: sourceShift!.start_time,
             end_time: sourceShift!.end_time,
             break_duration_minutes: sourceShift!.break_duration_minutes,
-            allow_overtime: sourceShift!.allow_overtime
+            allow_overtime: sourceShift!.allow_overtime,
           });
         } else {
           shiftsToInsert.push({
             employee_id: targetEmployeeId,
-            store_id: sourceShift ? sourceShift.store_id : (targetShift ? targetShift.store_id : ''),
+            store_id: sourceShift
+              ? sourceShift.store_id
+              : targetShift
+                ? targetShift.store_id
+                : '',
             date: targetDate,
             start_time: '00:00',
             end_time: '00:00',
             break_duration_minutes: 0,
-            allow_overtime: false
+            allow_overtime: false,
           });
         }
 
@@ -438,17 +597,21 @@ export default function DashboardPage() {
             start_time: targetShift!.start_time,
             end_time: targetShift!.end_time,
             break_duration_minutes: targetShift!.break_duration_minutes,
-            allow_overtime: targetShift!.allow_overtime
+            allow_overtime: targetShift!.allow_overtime,
           });
         } else {
           shiftsToInsert.push({
             employee_id: sourceEmployeeId,
-            store_id: targetShift ? targetShift.store_id : (sourceShift ? sourceShift.store_id : ''),
+            store_id: targetShift
+              ? targetShift.store_id
+              : sourceShift
+                ? sourceShift.store_id
+                : '',
             date: sourceDate,
             start_time: '00:00',
             end_time: '00:00',
             break_duration_minutes: 0,
-            allow_overtime: false
+            allow_overtime: false,
           });
         }
       }
@@ -457,13 +620,13 @@ export default function DashboardPage() {
       markChanged();
       await loadData();
     } catch (err) {
-      console.error("Erro ao arrastar e soltar turno:", err);
-      alert("Erro ao salvar a movimentação: " + err);
+      console.error('Erro ao arrastar e soltar turno:', err);
+      alert('Erro ao salvar a movimentação: ' + err);
     }
   };
 
   const handlePrevMonth = () => {
-    setCurrentMonthStart(prev => {
+    setCurrentMonthStart((prev) => {
       const newDate = new Date(prev);
       newDate.setMonth(prev.getMonth() - 1);
       return newDate;
@@ -471,17 +634,20 @@ export default function DashboardPage() {
   };
 
   const handleNextMonth = () => {
-    setCurrentMonthStart(prev => {
+    setCurrentMonthStart((prev) => {
       const newDate = new Date(prev);
       newDate.setMonth(prev.getMonth() + 1);
       return newDate;
     });
   };
 
-
-
   // Open shift modal
-  const handleCellClick = (employeeId: string, date: string, storeId: string, shift?: Shift) => {
+  const handleCellClick = (
+    employeeId: string,
+    date: string,
+    storeId: string,
+    shift?: Shift,
+  ) => {
     setSelectedEmployeeId(employeeId);
     setSelectedDate(date);
     setSelectedStoreId(storeId);
@@ -490,39 +656,52 @@ export default function DashboardPage() {
   };
 
   // Format month name in Portuguese (e.g. "Julho de 2026")
-  const monthLabel = currentMonthStart.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+  const monthLabel = currentMonthStart.toLocaleString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
-    <div className="app-container">
+    <div className='app-container'>
       {/* 1. Supabase Demo Mode warning banner */}
       {isDemoMode && (
-        <div className="demo-banner">
-          <span>⚙️ <strong>Modo Demo (Local):</strong> Dados persistidos no navegador. Configure o <code>.env.local</code> para habilitar o Supabase.</span>
+        <div className='demo-banner'>
+          <span>
+            ⚙️ <strong>Modo Demo (Local):</strong> Dados persistidos no
+            navegador. Configure o <code>.env.local</code> para habilitar o
+            Supabase.
+          </span>
         </div>
       )}
 
       {/* 2. Top Header Navigation */}
-      <header className="app-header">
-        <div className="header-brand">
-          <div className="brand-logo">{franchiseName ? franchiseName.charAt(0).toUpperCase() : 'V'}</div>
-          <div className="brand-text">
+      <header className='app-header'>
+        <div className='header-brand'>
+          <div className='brand-logo'>
+            {franchiseName ? franchiseName.charAt(0).toUpperCase() : 'V'}
+          </div>
+          <div className='brand-text'>
             <h1>Escala Varejo</h1>
             <p style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>{franchiseName ? `Unidades ${franchiseName}` : 'Gestão e Conformidade CLT'}</span>
-              <button 
-                type="button"
-                onClick={handleChangeFranchiseName} 
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  cursor: 'pointer', 
-                  fontSize: '0.85rem', 
+              <span>
+                {franchiseName
+                  ? `Unidades ${franchiseName}`
+                  : 'Gestão e Conformidade CLT'}
+              </span>
+              <button
+                type='button'
+                onClick={handleChangeFranchiseName}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
                   padding: '2px',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  opacity: 0.7
+                  opacity: 0.7,
                 }}
-                title="Editar Nome da Franquia"
+                title='Editar Nome da Franquia'
               >
                 ✏️
               </button>
@@ -531,102 +710,159 @@ export default function DashboardPage() {
         </div>
 
         {/* Month Selector */}
-        <div className="week-selector-container">
+        <div className='week-selector-container'>
           <button
-            type="button"
-            className="btn-icon"
+            type='button'
+            className='btn-icon'
             onClick={handlePrevMonth}
-            title="Mês Anterior"
+            title='Mês Anterior'
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="m15 18-6-6 6-6" />
+            <svg
+              width='20'
+              height='20'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <path d='m15 18-6-6 6-6' />
             </svg>
           </button>
-          <div className="week-display" style={{ textTransform: 'capitalize' }}>
-            <span>
-              {monthLabel}
-            </span>
+          <div className='week-display' style={{ textTransform: 'capitalize' }}>
+            <span>{monthLabel}</span>
           </div>
           <button
-            type="button"
-            className="btn-icon"
+            type='button'
+            className='btn-icon'
             onClick={handleNextMonth}
-            title="Próximo Mês"
+            title='Próximo Mês'
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="m9 18 6-6-6-6" />
+            <svg
+              width='20'
+              height='20'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <path d='m9 18 6-6-6-6' />
             </svg>
           </button>
         </div>
 
         {/* Global Action Bar */}
-        <div className="header-actions">
+        <div className='header-actions'>
           <button
-            type="button"
-            className="btn btn-primary"
+            type='button'
+            className='btn btn-primary'
             onClick={() => setIsAISchedulerOpen(true)}
             style={{
               background: 'linear-gradient(135deg, var(--color-gold), #d4af37)',
               border: 'none',
-              boxShadow: '0 2px 8px rgba(176, 141, 71, 0.15)'
+              boxShadow: '0 2px 8px rgba(176, 141, 71, 0.15)',
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '4px' }}>
-              <path d="m12 3-1.912 5.886L4.202 9l5.886 1.912L12 16.798l1.912-5.886L19.798 9l-5.886-1.912Z" />
-              <path d="M5 3v4" />
-              <path d="M3 5h4" />
-              <path d="M19 17v4" />
-              <path d="M17 19h4" />
+            <svg
+              width='16'
+              height='16'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2.5'
+              style={{ marginRight: '4px' }}
+            >
+              <path d='m12 3-1.912 5.886L4.202 9l5.886 1.912L12 16.798l1.912-5.886L19.798 9l-5.886-1.912Z' />
+              <path d='M5 3v4' />
+              <path d='M3 5h4' />
+              <path d='M19 17v4' />
+              <path d='M17 19h4' />
             </svg>
             <span>Gerar Escala (IA)</span>
           </button>
           <button
-            type="button"
-            className="btn btn-secondary"
+            type='button'
+            className='btn btn-secondary'
             onClick={() => setIsStoreModalOpen(true)}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-              <circle cx="12" cy="10" r="3" />
+            <svg
+              width='16'
+              height='16'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <path d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z' />
+              <circle cx='12' cy='10' r='3' />
             </svg>
             <span>Lojas</span>
           </button>
           <button
-            type="button"
-            className="btn btn-secondary"
+            type='button'
+            className='btn btn-secondary'
             onClick={() => setIsEmployeeModalOpen(true)}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            <svg
+              width='16'
+              height='16'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <path d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2' />
+              <circle cx='9' cy='7' r='4' />
+              <path d='M22 21v-2a4 4 0 0 0-3-3.87' />
+              <path d='M16 3.13a4 4 0 0 1 0 7.75' />
             </svg>
             <span>Funcionários</span>
           </button>
           <button
-            type="button"
-            className="btn btn-secondary"
+            type='button'
+            className='btn btn-secondary'
             onClick={() => setIsWhatsAppModalOpen(true)}
             style={{ color: 'var(--color-success)' }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" x2="12" y1="3" y2="15" />
+            <svg
+              width='16'
+              height='16'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+            >
+              <path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' />
+              <polyline points='17 8 12 3 7 8' />
+              <line x1='12' x2='12' y1='3' y2='15' />
             </svg>
             <span>WhatsApp</span>
           </button>
-
-
         </div>
       </header>
 
       {/* 3. Main Board Grid Workspace */}
       {loading && (
-        <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+        <div
+          style={{
+            display: 'flex',
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-secondary)',
+          }}
+        >
           <div style={{ textAlign: 'center' }}>
-            <div style={{ border: '3px solid var(--border-color)', borderTop: '3px solid var(--color-gold)', borderRadius: '50%', width: '36px', height: '36px', animation: 'spin 1s linear infinite', margin: '0 auto 1rem auto' }} />
+            <div
+              style={{
+                border: '3px solid var(--border-color)',
+                borderTop: '3px solid var(--color-gold)',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                animation: 'spin 1s linear infinite',
+                margin: '0 auto 1rem auto',
+              }}
+            />
             <p>Carregando escala...</p>
             <style>{`
               @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -636,7 +872,7 @@ export default function DashboardPage() {
       )}
 
       {!loading && (
-        <div className="app-workspace">
+        <div className='app-workspace'>
           {/* Left Side: Dynamic trackers */}
           <SidebarTracker
             stores={stores}
@@ -651,7 +887,7 @@ export default function DashboardPage() {
           />
 
           {/* Right Side: Log console and matrix */}
-          <main className="workspace-main">
+          <main className='workspace-main'>
             <AlertsPanel
               alerts={alerts}
               minimized={alertsMinimized}
